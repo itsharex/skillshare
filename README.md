@@ -36,9 +36,7 @@
 </p>
 
 > [!NOTE]
-> **Recent Updates**
-> - **[0.16.*](https://github.com/runkids/skillshare/releases/tag/v0.16.11)**: Supply-chain trust (metadata analyzer, skill integrity verification), extras sync (`sync extras`), security hardening (credential detection, interpreter tier, prompt injection bypass fixes), interactive TUI, Homebrew-aware upgrade.
-> - Full history: [All Releases](https://github.com/runkids/skillshare/releases)
+> **Latest**: [v0.16](https://github.com/runkids/skillshare/releases/tag/v0.16.11) — supply-chain trust, interactive TUI, security hardening. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
