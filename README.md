@@ -138,7 +138,7 @@ skillshare sync            # Sync skills to all targets
 **Install & update skills** —from GitHub, GitLab, or any Git host
 
 ```bash
-skillshare install github.com/team/skills --track
+skillshare install github.com/reponame/skills
 skillshare update --all
 skillshare target claude --mode copy  # if symlinks don't work
 ```
@@ -207,6 +207,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/ndeybach"><img src="https://github.com/ndeybach.png" width="50" style="border-radius:50%" alt="ndeybach"></a>
 <a href="https://github.com/salmonumbrella"><img src="https://github.com/salmonumbrella.png" width="50" style="border-radius:50%" alt="salmonumbrella"></a>
 <a href="https://github.com/daylamtayari"><img src="https://github.com/daylamtayari.png" width="50" style="border-radius:50%" alt="daylamtayari"></a>
+<a href="https://github.com/dstotijn"><img src="https://github.com/dstotijn.png" width="50" style="border-radius:50%" alt="dstotijn"></a>
 
 ---
 
