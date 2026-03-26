@@ -9,6 +9,36 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.18.1] - 2026-03-27
+
+### New Features
+
+#### Analyze — Filter & Token Budget
+
+- **`--filter` flag** — filter skills by name or group path with case-insensitive substring matching. Works across all output modes:
+  ```bash
+  skillshare analyze claude --json --filter frontend   # JSON with filtered_summary
+  skillshare analyze --filter marketing                 # TUI with pre-populated filter
+  ```
+
+- **Dynamic token subtotals** — the TUI stats line and Web UI now show always-loaded, on-demand, and total token sums for the current filtered set. In the TUI, the format changes to `5/50 skills` when a filter is active
+
+- **Web UI filtered summary bar** — when searching or filtering on the Analyze page, a summary bar appears above the table with token counts per category. The bar slides in/out with a smooth animation
+
+- **JSON `filtered_summary`** — when `--filter` is used with `--json`, the output includes `filter`, `matched_count`, `total_count`, and a `filtered_summary` object with `always_loaded`, `on_demand`, and `total` token counts
+
+#### Registry Location
+
+- **Registry moved to source directory** — `registry.yaml` now lives at `~/.config/skillshare/skills/registry.yaml` (inside the source directory) instead of `~/.config/skillshare/registry.yaml`. This means `git sync` automatically includes the registry, so tracked skill metadata is preserved across machines. Migration is automatic on first run (#103)
+
+### Bug Fixes
+
+- **`init --remote` skips skill prompt** — when `init --remote` clones a repo that already contains skills, the interactive "choose skills to install" prompt is now skipped since the remote already defines the skill set (#102)
+
+### Improvements
+
+- **Analyze Web UI polish** — improved empty state with icon and helper text, fixed table height to prevent layout jumps when filtering, lint filter badge now shows readable rule names (e.g., "No Trigger Phrase" instead of `no-trigger-phrase`)
+
 ## [0.18.0] - 2026-03-26
 
 ### New Features
