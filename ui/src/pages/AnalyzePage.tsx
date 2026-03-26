@@ -494,7 +494,7 @@ function FilteredSummaryBar({ filtered, total }: { filtered: AnalyzeSkill[]; tot
     return { descTokens, bodyTokens, totalTokens: descTokens + bodyTokens };
   }, [filtered]);
 
-  if (filtered.length === total) return null;
+  const isActive = filtered.length !== total;
 
   const stats = [
     { label: 'Always', value: formatTokens(summary.descTokens), icon: <Zap size={14} strokeWidth={2.5} />, colorClass: 'text-info', bgClass: 'bg-info-light border-info' },
@@ -503,7 +503,10 @@ function FilteredSummaryBar({ filtered, total }: { filtered: AnalyzeSkill[]; tot
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-3 mb-4">
+    <div
+      className="flex flex-wrap items-center gap-3 overflow-hidden transition-all duration-200 ease-out"
+      style={{ maxHeight: isActive ? '48px' : '0px', opacity: isActive ? 1 : 0, marginBottom: isActive ? '16px' : '0px' }}
+    >
       <div className="flex items-center gap-1.5 mr-1">
         <Filter size={16} className="text-pencil shrink-0" />
         <span className="text-sm font-medium text-pencil">
@@ -693,7 +696,7 @@ function SkillTable({
                 return (
                   <tr
                     key={skill.name}
-                    className="border-b border-dashed border-muted cursor-pointer hover:bg-paper-warm/60 transition-colors group"
+                    className="border-b border-dashed border-muted cursor-pointer hover:bg-paper-warm/60 transition-colors group animate-in fade-in duration-150"
                     onClick={() => setSelectedSkill(skill)}
                   >
                     <td className="py-3 pr-4">
