@@ -316,6 +316,114 @@ func TestAnalyze_HelpShowsNoTUI(t *testing.T) {
 	result.AssertOutputContains(t, "--no-tui")
 }
 
+func TestAnalyze_JSONFilter(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create skills in different groups — use CreateNestedSkill
+	sb.CreateNestedSkill("frontend/react", map[string]string{
+		"SKILL.md": "---\nname: react\ndescription: React best practices for building UIs\n---\n# React\nBody content here",
+	})
+	sb.CreateNestedSkill("frontend/vue", map[string]string{
+		"SKILL.md": "---\nname: vue\ndescription: Vue framework patterns\n---\n# Vue\nVue body",
+	})
+	sb.CreateNestedSkill("backend/go", map[string]string{
+		"SKILL.md": "---\nname: go\ndescription: Go patterns and idioms\n---\n# Go\nGo body content",
+	})
+
+	target := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + target + `
+`)
+
+	result := sb.RunCLI("analyze", "claude", "--json", "--filter", "frontend")
+	result.AssertSuccess(t)
+
+	var output struct {
+		Filter          string `json:"filter"`
+		MatchedCount    int    `json:"matched_count"`
+		TotalCount      int    `json:"total_count"`
+		FilteredSummary struct {
+			AlwaysLoaded struct {
+				Chars  int `json:"chars"`
+				Tokens int `json:"tokens"`
+			} `json:"always_loaded"`
+			OnDemand struct {
+				Chars  int `json:"chars"`
+				Tokens int `json:"tokens"`
+			} `json:"on_demand"`
+			Total struct {
+				Chars  int `json:"chars"`
+				Tokens int `json:"tokens"`
+			} `json:"total"`
+		} `json:"filtered_summary"`
+		Skills []struct {
+			Name string `json:"name"`
+		} `json:"skills"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("failed to parse JSON: %v\noutput: %s", err, result.Stdout)
+	}
+	if output.Filter != "frontend" {
+		t.Errorf("expected filter 'frontend', got %q", output.Filter)
+	}
+	if output.MatchedCount != 2 {
+		t.Errorf("expected 2 matched skills, got %d", output.MatchedCount)
+	}
+	if output.TotalCount != 3 {
+		t.Errorf("expected 3 total skills, got %d", output.TotalCount)
+	}
+	if len(output.Skills) != 2 {
+		t.Fatalf("expected 2 skills in array, got %d", len(output.Skills))
+	}
+	if output.FilteredSummary.AlwaysLoaded.Chars <= 0 {
+		t.Errorf("expected positive always_loaded.chars, got %d", output.FilteredSummary.AlwaysLoaded.Chars)
+	}
+	if output.FilteredSummary.Total.Chars <= 0 {
+		t.Errorf("expected positive total.chars, got %d", output.FilteredSummary.Total.Chars)
+	}
+}
+
+func TestAnalyze_JSONFilterNoMatch(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{
+		"SKILL.md": "---\nname: skill1\ndescription: A test skill\n---\n# Skill 1\nBody",
+	})
+	target := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + target + `
+`)
+
+	result := sb.RunCLI("analyze", "claude", "--json", "--filter", "nonexistent")
+	result.AssertSuccess(t)
+
+	var output struct {
+		MatchedCount int `json:"matched_count"`
+		TotalCount   int `json:"total_count"`
+		Skills       []struct {
+			Name string `json:"name"`
+		} `json:"skills"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("failed to parse JSON: %v\noutput: %s", err, result.Stdout)
+	}
+	if output.MatchedCount != 0 {
+		t.Errorf("expected 0 matched skills, got %d", output.MatchedCount)
+	}
+	if output.TotalCount != 1 {
+		t.Errorf("expected 1 total skill, got %d", output.TotalCount)
+	}
+	if len(output.Skills) != 0 {
+		t.Fatalf("expected 0 skills in array, got %d", len(output.Skills))
+	}
+}
+
 func TestAnalyze_JSONLintIssues(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

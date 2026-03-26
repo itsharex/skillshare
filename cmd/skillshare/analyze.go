@@ -17,6 +17,7 @@ type analyzeOptions struct {
 	verbose    bool
 	json       bool
 	noTUI      bool
+	filter     string
 }
 
 type analyzeSkillEntry struct {
@@ -56,9 +57,49 @@ type analyzeLoadResult struct {
 	err     error
 }
 
+type analyzeFilteredOutput struct {
+	Filter          string               `json:"filter"`
+	MatchedCount    int                  `json:"matched_count"`
+	TotalCount      int                  `json:"total_count"`
+	FilteredSummary analyzeFilterSummary `json:"filtered_summary"`
+	Skills          []analyzeSkillEntry  `json:"skills"`
+}
+
+type analyzeFilterSummary struct {
+	AlwaysLoaded analyzeFilterTokens `json:"always_loaded"`
+	OnDemand     analyzeFilterTokens `json:"on_demand"`
+	Total        analyzeFilterTokens `json:"total"`
+}
+
+type analyzeFilterTokens struct {
+	Chars  int `json:"chars"`
+	Tokens int `json:"tokens"`
+}
+
+func filterAnalyzeSkills(skills []analyzeSkillEntry, filter string) (matched []analyzeSkillEntry, summary analyzeFilterSummary) {
+	lower := strings.ToLower(filter)
+	for _, s := range skills {
+		searchField := s.relPath
+		if searchField == "" {
+			searchField = s.Name
+		}
+		if strings.Contains(strings.ToLower(searchField), lower) {
+			matched = append(matched, s)
+			summary.AlwaysLoaded.Chars += s.DescriptionChars
+			summary.OnDemand.Chars += s.BodyChars
+		}
+	}
+	summary.AlwaysLoaded.Tokens = estimateTokens(summary.AlwaysLoaded.Chars)
+	summary.OnDemand.Tokens = estimateTokens(summary.OnDemand.Chars)
+	summary.Total.Chars = summary.AlwaysLoaded.Chars + summary.OnDemand.Chars
+	summary.Total.Tokens = estimateTokens(summary.Total.Chars)
+	return
+}
+
 func parseAnalyzeArgs(args []string) (*analyzeOptions, bool, error) {
 	opts := &analyzeOptions{}
-	for _, arg := range args {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		switch {
 		case arg == "--verbose" || arg == "-v":
 			opts.verbose = true
@@ -66,6 +107,17 @@ func parseAnalyzeArgs(args []string) (*analyzeOptions, bool, error) {
 			opts.json = true
 		case arg == "--no-tui":
 			opts.noTUI = true
+		case arg == "--filter":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--filter requires a value")
+			}
+			i++
+			opts.filter = args[i]
+		case strings.HasPrefix(arg, "--filter="):
+			opts.filter = strings.TrimPrefix(arg, "--filter=")
+			if opts.filter == "" {
+				return nil, false, fmt.Errorf("--filter requires a non-empty value")
+			}
 		case arg == "--help" || arg == "-h":
 			return nil, true, nil
 		case strings.HasPrefix(arg, "-"):
@@ -127,18 +179,20 @@ Arguments:
   target              Show details for a single target (optional)
 
 Options:
-  --verbose, -v     Show top 10 largest descriptions per target
-  --project, -p     Analyze project-level skills (.skillshare/)
-  --global, -g      Analyze global skills (~/.config/skillshare)
-  --json            Output results as JSON
-  --no-tui          Disable interactive TUI
-  --help, -h        Show this help
+  --verbose, -v       Show top 10 largest descriptions per target
+  --project, -p       Analyze project-level skills (.skillshare/)
+  --global, -g        Analyze global skills (~/.config/skillshare)
+  --json              Output results as JSON
+  --filter <text>     Filter skills by name/path (case-insensitive substring)
+  --no-tui            Disable interactive TUI
+  --help, -h          Show this help
 
 Examples:
   skillshare analyze               # Summary table for all targets
   skillshare analyze --verbose     # Top 10 descriptions per target
   skillshare analyze claude        # Details for claude target
   skillshare analyze --json        # JSON output
+  skillshare analyze --filter api  # Show only skills matching "api"
   skillshare analyze -p            # Project mode`)
 }
 
@@ -209,7 +263,35 @@ func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, d
 	}
 
 	if opts.json {
+		if opts.filter != "" && len(entries) > 0 {
+			entry := entries[0]
+			matched, summary := filterAnalyzeSkills(entry.Skills, opts.filter)
+			return writeJSON(&analyzeFilteredOutput{
+				Filter:          opts.filter,
+				MatchedCount:    len(matched),
+				TotalCount:      len(entry.Skills),
+				FilteredSummary: summary,
+				Skills:          matched,
+			})
+		} else if opts.filter != "" {
+			return writeJSON(&analyzeFilteredOutput{Filter: opts.filter})
+		}
 		return writeJSON(&analyzeOutput{Targets: entries})
+	}
+
+	if opts.filter != "" {
+		for i, entry := range entries {
+			matched, _ := filterAnalyzeSkills(entry.Skills, opts.filter)
+			entries[i].Skills = matched
+			entries[i].SkillCount = len(matched)
+			var descChars, bodyChars int
+			for _, s := range matched {
+				descChars += s.DescriptionChars
+				bodyChars += s.BodyChars
+			}
+			entries[i].AlwaysLoaded = analyzeCharTokens{Chars: descChars, EstimatedTokens: estimateTokens(descChars)}
+			entries[i].OnDemandMax = analyzeCharTokens{Chars: bodyChars, EstimatedTokens: estimateTokens(bodyChars)}
+		}
 	}
 
 	if opts.verbose {
