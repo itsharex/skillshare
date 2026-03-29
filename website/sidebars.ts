@@ -91,6 +91,7 @@ const sidebars: SidebarsConfig = {
         'understand/sync-modes',
         'understand/tracked-repositories',
         'understand/skill-format',
+        'understand/agents',
         'understand/project-skills',
         'understand/declarative-manifest',
         'understand/audit-engine',
