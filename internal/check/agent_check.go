@@ -15,7 +15,8 @@ type AgentCheckResult struct {
 	Name    string `json:"name"`
 	Source  string `json:"source,omitempty"`
 	Version string `json:"version,omitempty"`
-	Status  string `json:"status"` // "up_to_date", "drifted", "local", "error"
+	RepoURL string `json:"repoUrl,omitempty"`
+	Status  string `json:"status"` // "up_to_date", "drifted", "local", "error", "update_available"
 	Message string `json:"message,omitempty"`
 }
 
@@ -63,6 +64,7 @@ func checkOneAgent(agentsDir, agentName, fileName string) AgentCheckResult {
 
 	result.Source = meta.Source
 	result.Version = meta.Version
+	result.RepoURL = meta.RepoURL
 
 	// Compare file hash
 	agentPath := filepath.Join(agentsDir, fileName)
@@ -86,4 +88,61 @@ func checkOneAgent(agentsDir, agentName, fileName string) AgentCheckResult {
 	}
 
 	return result
+}
+
+// EnrichAgentResultsWithRemote checks agents that have RepoURL + Version
+// against their remote HEAD to detect available updates.
+// Uses ParallelCheckURLs for efficient batched remote probing.
+func EnrichAgentResultsWithRemote(results []AgentCheckResult, onDone func()) {
+	// Collect unique repo URLs that have version info
+	type agentRef struct {
+		repoURL string
+		version string
+		indices []int
+	}
+	urlMap := make(map[string]*agentRef)
+	for i, r := range results {
+		if r.RepoURL == "" || r.Version == "" {
+			continue
+		}
+		if ref, ok := urlMap[r.RepoURL]; ok {
+			ref.indices = append(ref.indices, i)
+		} else {
+			urlMap[r.RepoURL] = &agentRef{
+				repoURL: r.RepoURL,
+				version: r.Version,
+				indices: []int{i},
+			}
+		}
+	}
+
+	if len(urlMap) == 0 {
+		return
+	}
+
+	// Build URL check inputs
+	var inputs []URLCheckInput
+	var refs []*agentRef
+	for _, ref := range urlMap {
+		inputs = append(inputs, URLCheckInput{RepoURL: ref.repoURL})
+		refs = append(refs, ref)
+	}
+
+	outputs := ParallelCheckURLs(inputs, onDone)
+
+	// Apply results
+	for i, out := range outputs {
+		ref := refs[i]
+		if out.Err != nil {
+			continue
+		}
+		if out.RemoteHash != "" && out.RemoteHash != ref.version {
+			for _, idx := range ref.indices {
+				if results[idx].Status == "up_to_date" {
+					results[idx].Status = "update_available"
+					results[idx].Message = "newer version available"
+				}
+			}
+		}
+	}
 }
