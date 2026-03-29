@@ -54,11 +54,16 @@ func TargetName(name string) error {
 	return nil
 }
 
+// reservedSkillNames are names that cannot be used as skill names
+// because they conflict with resource kind directories or commands.
+var reservedSkillNames = []string{"agents"}
+
 // SkillName validates a skill name.
 // Rules:
 //   - Must start with a letter or number
 //   - Can contain letters, numbers, underscores, and hyphens
 //   - Length 1-64 characters
+//   - Cannot be a reserved skill name (e.g. "agents")
 func SkillName(name string) error {
 	if name == "" {
 		return fmt.Errorf("skill name cannot be empty")
@@ -70,6 +75,12 @@ func SkillName(name string) error {
 
 	if !validSkillNameRegex.MatchString(name) {
 		return fmt.Errorf("skill name must start with a letter or number and contain only letters, numbers, underscores, and hyphens")
+	}
+
+	for _, r := range reservedSkillNames {
+		if strings.EqualFold(name, r) {
+			return fmt.Errorf("'%s' is a reserved name and cannot be used as a skill name", name)
+		}
 	}
 
 	return nil
