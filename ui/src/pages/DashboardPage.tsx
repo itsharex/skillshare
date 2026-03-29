@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   FolderPlus,
   LayoutDashboard,
+  Bot,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -114,6 +115,15 @@ export default function DashboardPage() {
       color: 'text-blue',
       bg: 'bg-info-light',
       to: '/skills',
+    },
+    {
+      label: 'Agents',
+      value: data.agentCount,
+      subtitle: 'installed',
+      icon: Bot,
+      color: 'text-accent',
+      bg: 'bg-accent/10',
+      to: '/skills?kind=agent',
     },
     {
       label: 'Targets',

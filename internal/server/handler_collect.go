@@ -14,6 +14,7 @@ import (
 
 type localSkillItem struct {
 	Name       string `json:"name"`
+	Kind       string `json:"kind,omitempty"`
 	Path       string `json:"path"`
 	TargetName string `json:"targetName"`
 	Size       int64  `json:"size"`
@@ -67,6 +68,7 @@ func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
 		for _, sk := range locals {
 			items = append(items, localSkillItem{
 				Name:       sk.Name,
+				Kind:       "skill",
 				Path:       sk.Path,
 				TargetName: name,
 				Size:       ssync.CalculateDirSize(sk.Path),

@@ -24,12 +24,14 @@ import {
   ExternalLink,
   MousePointerClick,
   X,
+  Bot,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { VirtuosoGrid, Virtuoso } from 'react-virtuoso';
 import type { GridComponents } from 'react-virtuoso';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
+import KindBadge from '../components/KindBadge';
 import { Input, Select, type SelectOption } from '../components/Input';
 import { PageSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
@@ -464,12 +466,14 @@ function saveCollapsed(collapsed: Set<string>) {
 
 /* -- Filter, Sort & View types -------------------- */
 
-type FilterType = 'all' | 'tracked' | 'github' | 'local';
+type FilterType = 'all' | 'skills' | 'agents' | 'tracked' | 'github' | 'local';
 type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
 type ViewType = 'grid' | 'grouped' | 'table';
 
 const filterOptions: { key: FilterType; label: string; icon: React.ReactNode }[] = [
   { key: 'all', label: 'All', icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
+  { key: 'skills', label: 'Skills', icon: <Puzzle size={14} strokeWidth={2.5} /> },
+  { key: 'agents', label: 'Agents', icon: <Bot size={14} strokeWidth={2.5} /> },
   { key: 'tracked', label: 'Tracked', icon: <Users size={14} strokeWidth={2.5} /> },
   { key: 'github', label: 'GitHub', icon: <Globe size={14} strokeWidth={2.5} /> },
   { key: 'local', label: 'Local', icon: <FolderOpen size={14} strokeWidth={2.5} /> },
@@ -479,6 +483,10 @@ function matchFilter(skill: Skill, filterType: FilterType): boolean {
   switch (filterType) {
     case 'all':
       return true;
+    case 'skills':
+      return skill.kind !== 'agent';
+    case 'agents':
+      return skill.kind === 'agent';
     case 'tracked':
       return skill.isInRepo;
     case 'github':
@@ -599,7 +607,8 @@ const SkillPostit = memo(function SkillPostit({
               : <Folder size={18} strokeWidth={2.5} className="text-pencil-light" />
             }
           </div>
-          <h3 className="font-bold text-pencil text-lg truncate leading-tight">
+          <h3 className="font-bold text-pencil text-lg truncate leading-tight flex items-center gap-1.5">
+            {skill.kind && <KindBadge kind={skill.kind} />}
             {skill.name}
           </h3>
         </div>
@@ -736,11 +745,15 @@ export default function SkillsPage() {
   const filterCounts = useMemo(() => {
     const counts: Record<FilterType, number> = {
       all: skills.length,
+      skills: 0,
+      agents: 0,
       tracked: 0,
       github: 0,
       local: 0,
     };
     for (const s of skills) {
+      if (s.kind === 'agent') counts.agents++;
+      else counts.skills++;
       if (s.isInRepo) counts.tracked++;
       if ((s.type === 'github' || s.type === 'github-subdir') && !s.isInRepo) counts.github++;
       if (!s.type && !s.isInRepo) counts.local++;

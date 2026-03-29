@@ -18,11 +18,13 @@ import (
 
 type batchUninstallRequest struct {
 	Names []string `json:"names"`
+	Kind  string   `json:"kind,omitempty"`
 	Force bool     `json:"force"`
 }
 
 type batchUninstallItemResult struct {
 	Name         string `json:"name"`
+	Kind         string `json:"kind,omitempty"`
 	Success      bool   `json:"success"`
 	MovedToTrash bool   `json:"movedToTrash,omitempty"`
 	Error        string `json:"error,omitempty"`
