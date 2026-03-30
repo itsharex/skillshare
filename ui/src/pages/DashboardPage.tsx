@@ -114,7 +114,7 @@ export default function DashboardPage() {
       icon: Puzzle,
       color: 'text-blue',
       bg: 'bg-info-light',
-      to: '/skills',
+      to: '/resources',
     },
     {
       label: 'Agents',
@@ -123,7 +123,7 @@ export default function DashboardPage() {
       icon: Bot,
       color: 'text-accent',
       bg: 'bg-accent/10',
-      to: '/skills?kind=agent',
+      to: '/resources?tab=agents',
     },
     {
       label: 'Targets',

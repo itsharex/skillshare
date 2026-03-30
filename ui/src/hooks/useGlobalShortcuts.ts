@@ -35,7 +35,7 @@ export const SHORTCUT_ENTRIES: ShortcutEntry[] = [
 
 const NAV_MAP: Record<string, string> = {
   d: '/',
-  s: '/skills',
+  s: '/resources',
   t: '/targets',
   l: '/log',
   a: '/audit',

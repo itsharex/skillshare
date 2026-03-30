@@ -13,7 +13,7 @@ import { TourProvider, TourOverlay, TourTooltip } from './components/tour';
 import DashboardPage from './pages/DashboardPage';
 import { BASE_PATH } from './lib/basePath';
 
-const SkillsPage = lazy(() => import('./pages/SkillsPage'));
+const ResourcesPage = lazy(() => import('./pages/ResourcesPage'));
 const SkillDetailPage = lazy(() => import('./pages/SkillDetailPage'));
 const TargetsPage = lazy(() => import('./pages/TargetsPage'));
 const ExtrasPage = lazy(() => import('./pages/ExtrasPage'));
@@ -53,7 +53,8 @@ export default function App() {
             <Routes>
               <Route element={<Layout />}>
                 <Route index element={<DashboardPage />} />
-                <Route path="skills" element={<Lazy><SkillsPage /></Lazy>} />
+                <Route path="resources" element={<Lazy><ResourcesPage /></Lazy>} />
+                <Route path="skills" element={<Lazy><ResourcesPage /></Lazy>} />
                 <Route path="skills/new" element={<Lazy><NewSkillPage /></Lazy>} />
                 <Route path="uninstall" element={<Lazy><BatchUninstallPage /></Lazy>} />
                 <Route path="skills/:name" element={<Lazy><SkillDetailPage /></Lazy>} />
