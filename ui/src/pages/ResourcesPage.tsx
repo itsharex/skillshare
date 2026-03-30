@@ -804,8 +804,8 @@ export default function SkillsPage() {
         }
       />
 
-      {/* Resource type underline tabs */}
-      <div className="flex items-center gap-0 border-b border-muted mb-2 -mx-4 px-4 md:-mx-8 md:px-8">
+      {/* Resource type tabs */}
+      <div className="ss-segmented ss-resource-tabs flex items-center gap-2 mb-3">
         {([
           { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: skillItems.length },
           { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: agentItems.length },
@@ -814,13 +814,16 @@ export default function SkillsPage() {
             key={tab.key}
             onClick={() => { setActiveTab(tab.key); setFilterType('all'); setSearch(''); }}
             className={`
-              inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors
-              border-b-2 -mb-px
+              ss-segmented-item ss-resource-tab
+              inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium cursor-pointer
+              transition-all duration-150 border
               ${activeTab === tab.key
-                ? 'border-pencil text-pencil'
-                : 'border-transparent text-pencil-light hover:text-pencil hover:border-muted-dark'
+                ? 'bg-surface text-pencil border-muted-dark'
+                : 'bg-transparent text-pencil-light border-muted hover:border-muted-dark hover:text-pencil'
               }
             `}
+            style={{ borderRadius: 'var(--radius-md)' }}
+            aria-pressed={activeTab === tab.key}
           >
             {tab.icon}
             {tab.label}
