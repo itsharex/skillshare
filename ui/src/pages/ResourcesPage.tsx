@@ -25,6 +25,7 @@ import {
   MousePointerClick,
   X,
   Bot,
+  Layers,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { VirtuosoGrid, Virtuoso } from 'react-virtuoso';
@@ -790,7 +791,7 @@ export default function SkillsPage() {
     <div data-tour="skills-view" className="animate-fade-in">
       {/* Header */}
       <PageHeader
-        icon={activeTab === 'agents' ? <Bot size={24} strokeWidth={2.5} /> : <Puzzle size={24} strokeWidth={2.5} />}
+        icon={<Layers size={24} strokeWidth={2.5} />}
         title="Resources"
         subtitle=""
         className="mb-1!"
