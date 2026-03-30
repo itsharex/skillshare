@@ -808,6 +808,17 @@ export default function SkillsPage() {
       <div ref={toolbarRef} className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-4">
         {/* Search + Sort row */}
         <div className="flex flex-col sm:flex-row gap-3 mb-2">
+          {/* Resource type toggle */}
+          <SegmentedControl
+            value={activeTab}
+            onChange={(v) => { setActiveTab(v as ResourceTab); setFilterType('all'); setSearch(''); }}
+            options={[
+              { value: 'skills', label: <span className="inline-flex items-center gap-1.5"><Puzzle size={16} strokeWidth={2.5} />Skills</span>, count: skillItems.length },
+              { value: 'agents', label: <span className="inline-flex items-center gap-1.5"><Bot size={16} strokeWidth={2.5} />Agents</span>, count: agentItems.length },
+            ]}
+            size="md"
+            connected
+          />
           <div className="relative flex-1">
             <Search
               size={18}
