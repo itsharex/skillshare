@@ -790,9 +790,9 @@ export default function SkillsPage() {
     <div data-tour="skills-view" className="animate-fade-in">
       {/* Header */}
       <PageHeader
-        icon={<Puzzle size={24} strokeWidth={2.5} />}
-        title="Skills"
-        subtitle={`${skills.length} skill${skills.length !== 1 ? 's' : ''} installed`}
+        icon={activeTab === 'agents' ? <Bot size={24} strokeWidth={2.5} /> : <Puzzle size={24} strokeWidth={2.5} />}
+        title="Resources"
+        subtitle=""
         className="mb-1!"
         actions={
           <Link to="/skills/new">
