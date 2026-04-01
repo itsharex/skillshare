@@ -17,6 +17,7 @@ func newTestServer(t *testing.T) (*Server, string) {
 	sourceDir := filepath.Join(tmp, "skills")
 	os.MkdirAll(sourceDir, 0755)
 	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, "xdg-config"))
 
 	cfgPath := filepath.Join(tmp, "config", "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
@@ -41,6 +42,7 @@ func newTestServerWithTargets(t *testing.T, targets map[string]string) (*Server,
 	sourceDir := filepath.Join(tmp, "skills")
 	os.MkdirAll(sourceDir, 0755)
 	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, "xdg-config"))
 
 	cfgPath := filepath.Join(tmp, "config", "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
@@ -68,4 +70,11 @@ func addSkill(t *testing.T, sourceDir, name string) {
 	skillDir := filepath.Join(sourceDir, name)
 	os.MkdirAll(skillDir, 0755)
 	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: "+name+"\n---\n# "+name), 0644)
+}
+
+// addSkillMeta creates a .skillshare-meta.json for a skill (marks it as remotely installed).
+func addSkillMeta(t *testing.T, sourceDir, name, source string) {
+	t.Helper()
+	meta := `{"source":"` + source + `"}`
+	os.WriteFile(filepath.Join(sourceDir, name, ".skillshare-meta.json"), []byte(meta), 0644)
 }

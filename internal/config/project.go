@@ -226,6 +226,21 @@ func (s SkillEntry) EffectiveParts() (group, name string) {
 	return "", s.Name
 }
 
+// PruneStaleSkills removes registry entries not present in the live set.
+// When skillsOnly is true, non-skill entries (e.g. agents) are preserved.
+func PruneStaleSkills(skills []SkillEntry, live map[string]bool, skillsOnly bool) ([]SkillEntry, bool) {
+	pruned := make([]SkillEntry, 0, len(skills))
+	changed := false
+	for _, s := range skills {
+		if (skillsOnly && s.EffectiveKind() != "skill") || live[s.FullName()] {
+			pruned = append(pruned, s)
+		} else {
+			changed = true
+		}
+	}
+	return pruned, changed
+}
+
 // ProjectConfig holds project-level config (.skillshare/config.yaml).
 type ProjectConfig struct {
 	Targets      []ProjectTargetEntry `yaml:"targets"`

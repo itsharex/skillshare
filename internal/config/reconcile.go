@@ -38,6 +38,7 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 	}
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
+	live := map[string]bool{} // tracks skills actually found on disk
 	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -74,6 +75,7 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 		}
 
 		fullPath := filepath.ToSlash(relPath)
+		live[fullPath] = true
 
 		// Determine branch: from metadata (regular skills) or git (tracked repos)
 		var branch string
@@ -125,6 +127,11 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 	if err != nil {
 		return fmt.Errorf("failed to scan global skills: %w", err)
 	}
+
+	// Prune stale entries: skills in registry but no longer on disk
+	var pruneChanged bool
+	reg.Skills, pruneChanged = PruneStaleSkills(reg.Skills, live, false)
+	changed = changed || pruneChanged
 
 	if changed {
 		regDir := cfg.RegistryDir

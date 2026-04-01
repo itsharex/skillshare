@@ -240,6 +240,34 @@ func cmdSync(args []string) error {
 		}
 	}
 
+	// Prune stale registry entries using already-discovered skills (avoids second walk)
+	if !dryRun {
+		regDir := cfg.RegistryDir
+		if regDir == "" {
+			regDir = config.SourceRoot(cfg.Source)
+		}
+		reg, regErr := config.LoadRegistry(regDir)
+		if regErr == nil {
+			live := make(map[string]bool, len(discoveredSkills))
+			for _, s := range discoveredSkills {
+				live[s.RelPath] = true
+			}
+			// Ignored skills still exist on disk — don't prune their registry entries
+			if ignoreStats != nil {
+				for _, p := range ignoreStats.IgnoredSkills {
+					live[p] = true
+				}
+			}
+			var pruneChanged bool
+			reg.Skills, pruneChanged = config.PruneStaleSkills(reg.Skills, live, false)
+			if pruneChanged {
+				if err := reg.Save(regDir); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: failed to save registry after prune: %v\n", err)
+				}
+			}
+		}
+	}
+
 	logSyncOp(config.ConfigPath(), syncLogStats{
 		Targets: len(cfg.Targets),
 		Failed:  failedTargets,

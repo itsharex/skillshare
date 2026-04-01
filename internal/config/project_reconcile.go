@@ -41,6 +41,7 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 	var gitignoreEntries []string
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
+	live := map[string]bool{} // tracks skills actually found on disk
 	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -82,6 +83,7 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 		}
 
 		fullPath := filepath.ToSlash(relPath)
+		live[fullPath] = true
 
 		// Determine branch: from metadata (regular skills) or git (tracked repos)
 		var branch string
@@ -138,6 +140,11 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 	if err != nil {
 		return fmt.Errorf("failed to scan project skills: %w", err)
 	}
+
+	// Prune stale skill entries (not on disk). Preserve non-skill entries (agents).
+	var pruneChanged bool
+	reg.Skills, pruneChanged = PruneStaleSkills(reg.Skills, live, true)
+	changed = changed || pruneChanged
 
 	// Batch-update .gitignore once (reads/writes the file only once instead of per-skill).
 	if len(gitignoreEntries) > 0 {

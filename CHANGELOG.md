@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.18.6] - 2026-04-01
+
+### Bug Fixes
+
+- **UI batch uninstall now removes nested skill registry entries** — previously, uninstalling grouped skills (e.g. `frontend/vue/vue-best-practices`) from the Web UI left stale entries in `registry.yaml` because the flat name (`__`) didn't match the stored path name (`/`). Uninstall now tracks the exact resolved path for accurate cleanup
+
+- **Sync prunes stale registry entries** — `skillshare sync` and the Web UI Sync page now automatically remove `registry.yaml` entries for skills that no longer exist in the source directory. Covers manual deletions, not just `uninstall`. Skills hidden by `.skillignore` are preserved
+
+- **Uninstall page search works as substring match** — typing `matt` in the filter box now matches `mattpocock/tdd` (substring search). Previously, only glob patterns like `*matt*` worked. Glob syntax (`*`, `?`) still works when present
+
+- **Uninstall page shows path format** — the confirmation dialog and result summary now display `frontend/vue/vue-best-practices` instead of `frontend__vue__vue-best-practices`
+
+- **Updates page removes redundant status line** — the "0 repo(s) and 20 skill(s) already up to date" line no longer appears when everything is already current (the empty state already says this)
+
 ## [0.18.5] - 2026-04-01
 
 ### New Features
