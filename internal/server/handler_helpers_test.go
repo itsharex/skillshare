@@ -16,6 +16,7 @@ func newTestServer(t *testing.T) (*Server, string) {
 	tmp := t.TempDir()
 	sourceDir := filepath.Join(tmp, "skills")
 	os.MkdirAll(sourceDir, 0755)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(tmp, "data"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
 
 	cfgPath := filepath.Join(tmp, "config", "config.yaml")
@@ -40,6 +41,7 @@ func newTestServerWithTargets(t *testing.T, targets map[string]string) (*Server,
 	tmp := t.TempDir()
 	sourceDir := filepath.Join(tmp, "skills")
 	os.MkdirAll(sourceDir, 0755)
+	t.Setenv("XDG_DATA_HOME", filepath.Join(tmp, "data"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
 
 	cfgPath := filepath.Join(tmp, "config", "config.yaml")
@@ -68,4 +70,15 @@ func addSkill(t *testing.T, sourceDir, name string) {
 	skillDir := filepath.Join(sourceDir, name)
 	os.MkdirAll(skillDir, 0755)
 	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: "+name+"\n---\n# "+name), 0644)
+}
+
+func addTrackedRepo(t *testing.T, sourceDir, relPath string) {
+	t.Helper()
+	repoDir := filepath.Join(sourceDir, filepath.FromSlash(relPath))
+	if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0755); err != nil {
+		t.Fatalf("failed to create tracked repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("tracked repo"), 0644); err != nil {
+		t.Fatalf("failed to seed tracked repo: %v", err)
+	}
 }
