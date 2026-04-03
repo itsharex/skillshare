@@ -4,7 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"skillshare/internal/trash"
 )
 
 func TestHandleListSkills_Empty(t *testing.T) {
@@ -95,5 +100,65 @@ func TestHandleGetSkillFile_PathTraversal(t *testing.T) {
 	// 404 or the handler never seeing "..". Either non-200 is acceptable.
 	if rr.Code == http.StatusOK {
 		t.Error("expected non-200 for path traversal attempt")
+	}
+}
+
+func TestHandleUninstallRepo_NestedRepoPath(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, filepath.Join("org", "_team-skills"))
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/repos/org/_team-skills", nil)
+	req.SetPathValue("name", "org/_team-skills")
+	rr := httptest.NewRecorder()
+	s.handleUninstallRepo(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	if _, err := os.Stat(filepath.Join(src, "org", "_team-skills")); !os.IsNotExist(err) {
+		t.Fatalf("expected nested tracked repo to be removed from source, stat err=%v", err)
+	}
+
+	entries, err := filepath.Glob(filepath.Join(trash.TrashDir(), "org", "_team-skills_*"))
+	if err != nil {
+		t.Fatalf("failed to inspect trash: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected nested tracked repo to be moved to trash, got %d matches", len(entries))
+	}
+}
+
+func TestHandleUninstallRepo_AmbiguousBasenameRequiresFullPath(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, filepath.Join("org", "_team-skills"))
+	addTrackedRepo(t, src, filepath.Join("dept", "_team-skills"))
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/repos/team-skills", nil)
+	req.SetPathValue("name", "team-skills")
+	rr := httptest.NewRecorder()
+	s.handleUninstallRepo(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "multiple tracked repositories match") {
+		t.Fatalf("expected ambiguous repo error, got %s", rr.Body.String())
+	}
+}
+
+func TestHandleUninstallRepo_RejectsPathTraversal(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/repos/../../evil", nil)
+	req.SetPathValue("name", "../evil")
+	rr := httptest.NewRecorder()
+	s.handleUninstallRepo(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "invalid or missing tracked repository name") {
+		t.Fatalf("expected invalid name error, got %s", rr.Body.String())
 	}
 }

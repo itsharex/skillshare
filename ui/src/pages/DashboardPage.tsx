@@ -12,6 +12,7 @@ import {
   GitBranch,
   AlertTriangle,
   Check,
+  Trash2,
   Package,
   Zap,
   ShieldCheck,
@@ -414,52 +415,160 @@ export default function DashboardPage() {
 /* -- Tracked Repositories Section --------------------- */
 
 function TrackedReposSection({ repos }: { repos: { name: string; skillCount: number; dirty: boolean }[] }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [updatingRepos, setUpdatingRepos] = useState<Set<string>>(new Set());
+  const [repoToDelete, setRepoToDelete] = useState<string | null>(null);
+  const [deletingRepos, setDeletingRepos] = useState<Set<string>>(new Set());
+
+  const invalidateRepoData = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.trash });
+  };
+
+  const handleUpdateRepo = async (repoName: string) => {
+    setUpdatingRepos((prev) => new Set(prev).add(repoName));
+    try {
+      const res = await api.update({ name: repoName });
+      const item = res.results[0];
+      const displayName = repoName.replace(/^_/, '');
+
+      if (item?.action === 'updated') {
+        toast(`Updated: ${displayName} — ${item.message ?? 'done'}`, 'success');
+      } else if (item?.action === 'up-to-date') {
+        toast(`${displayName} is already up to date.`, 'info');
+      } else if (item?.action === 'blocked') {
+        toast(item.message ?? `Update blocked for ${displayName}`, 'error');
+      } else if (item?.action === 'error') {
+        toast(item.message ?? `Update failed for ${displayName}`, 'error');
+      } else {
+        toast(item?.message ?? `Skipped ${displayName}`, 'warning');
+      }
+
+      await invalidateRepoData();
+    } catch (e: unknown) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setUpdatingRepos((prev) => {
+        const next = new Set(prev);
+        next.delete(repoName);
+        return next;
+      });
+    }
+  };
+
+  const handleDeleteRepo = async () => {
+    if (!repoToDelete) return;
+
+    const targetRepo = repoToDelete;
+    setDeletingRepos((prev) => new Set(prev).add(targetRepo));
+    try {
+      const displayName = targetRepo.replace(/^_/, '');
+      await api.deleteRepo(targetRepo);
+      toast(`Repository "${displayName}" uninstalled.`, 'success');
+      setRepoToDelete(null);
+      await invalidateRepoData();
+    } catch (e: unknown) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setDeletingRepos((prev) => {
+        const next = new Set(prev);
+        next.delete(targetRepo);
+        return next;
+      });
+    }
+  };
+
   return (
-    <Card className="mb-8">
-      <div className="flex items-center gap-2 mb-4">
-        <GitBranch size={20} strokeWidth={2.5} className="text-blue" />
-        <h3
-          className="text-lg font-bold text-pencil"
-        >
-          Tracked Repositories
-        </h3>
-      </div>
-      <div className="space-y-3">
-        {repos.map((repo) => {
-          const displayName = repo.name.replace(/^_/, '');
-          return (
-            <div
-              key={repo.name}
-              className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-              style={{ borderRadius: radius.sm }}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <GitBranch size={16} className="text-pencil-light shrink-0" />
-                <span
-                  className="font-medium text-pencil truncate"
-                >
-                  {displayName}
-                </span>
-                <Badge variant="info">{repo.skillCount} skills</Badge>
-              </div>
-              <div className="flex items-center gap-1 shrink-0 ml-2">
-                {repo.dirty ? (
-                  <span className="flex items-center gap-1 text-warning text-sm">
-                    <AlertTriangle size={14} strokeWidth={2.5} />
-                    <span>modified</span>
+    <>
+      <Card className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <GitBranch size={20} strokeWidth={2.5} className="text-blue" />
+          <h3
+            className="text-lg font-bold text-pencil"
+          >
+            Tracked Repositories
+          </h3>
+        </div>
+        <div className="space-y-3">
+          {repos.map((repo) => {
+            const displayName = repo.name.replace(/^_/, '');
+            const isUpdating = updatingRepos.has(repo.name);
+            const isDeleting = deletingRepos.has(repo.name);
+            const hasAnyDeleteInProgress = deletingRepos.size > 0;
+            const isBusy = isUpdating || isDeleting;
+
+            return (
+              <div
+                key={repo.name}
+                className="flex flex-col gap-3 py-3 px-3 bg-paper-warm border border-muted md:flex-row md:items-center md:justify-between"
+                style={{ borderRadius: radius.sm }}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <GitBranch size={16} className="text-pencil-light shrink-0" />
+                  <span
+                    className="font-medium text-pencil truncate"
+                  >
+                    {displayName}
                   </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-success text-sm">
-                    <Check size={14} strokeWidth={2.5} />
-                    <span>clean</span>
-                  </span>
-                )}
+                  <Badge variant="info">{repo.skillCount} skills</Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {repo.dirty ? (
+                    <span className="flex items-center gap-1 text-warning text-sm">
+                      <AlertTriangle size={14} strokeWidth={2.5} />
+                      <span>modified</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-success text-sm">
+                      <Check size={14} strokeWidth={2.5} />
+                      <span>clean</span>
+                    </span>
+                  )}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleUpdateRepo(repo.name)}
+                    loading={isUpdating}
+                    disabled={hasAnyDeleteInProgress}
+                  >
+                    <RefreshCw size={14} />
+                    Update
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => setRepoToDelete(repo.name)}
+                    disabled={isBusy || repoToDelete !== null || updatingRepos.size > 0}
+                  >
+                    <Trash2 size={14} />
+                    Uninstall
+                  </Button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-    </Card>
+            );
+          })}
+        </div>
+      </Card>
+
+      <ConfirmDialog
+        open={repoToDelete !== null}
+        title="Uninstall Repository"
+        message={
+          repoToDelete
+            ? `Remove repository "${repoToDelete.replace(/^_/, '')}"? This will move all skills in the repo to trash.`
+            : ''
+        }
+        confirmText="Uninstall"
+        variant="danger"
+        loading={repoToDelete !== null && deletingRepos.has(repoToDelete)}
+        onConfirm={handleDeleteRepo}
+        onCancel={() => {
+          if (repoToDelete === null || !deletingRepos.has(repoToDelete)) setRepoToDelete(null);
+        }}
+      />
+    </>
   );
 }
 
