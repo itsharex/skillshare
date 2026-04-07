@@ -2,7 +2,6 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useCallback, useEffect } from 'react';
 import {
   LayoutDashboard,
-  Puzzle,
   Layers,
   Target,
   FolderPlus,

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, forwardRef, memo, type ReactElement } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Search,
   GitBranch,
@@ -468,6 +468,7 @@ function saveCollapsed(collapsed: Set<string>) {
 
 /* -- Filter, Sort & View types -------------------- */
 
+type ResourceTab = 'skills' | 'agents';
 type FilterType = 'all' | 'skills' | 'agents' | 'tracked' | 'github' | 'local';
 type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
 type ViewType = 'grid' | 'grouped' | 'table';
@@ -791,6 +792,10 @@ export default function SkillsPage() {
     return sortSkills(result, sortType);
   }, [skills, search, filterType, sortType]);
 
+  const skillItems = useMemo(() => filtered.filter((s) => s.kind !== 'agent'), [filtered]);
+  const agentItems = useMemo(() => filtered.filter((s) => s.kind === 'agent'), [filtered]);
+  const tabFiltered = activeTab === 'agents' ? agentItems : skillItems;
+
   if (isPending) return <PageSkeleton />;
   if (error) {
     return (
@@ -915,7 +920,7 @@ export default function SkillsPage() {
       {/* Result count — hidden in folder view (merged into folder toolbar) */}
       {(filterType !== 'all' || search) && viewType !== 'grouped' && (
         <p className="text-pencil-light text-sm mb-3">
-          Showing {filtered.length} of {skills.length} skills
+          Showing {tabFiltered.length} of {skills.length} resources
           {filterType !== 'all' && (
             <>
               {' '}
@@ -938,11 +943,11 @@ export default function SkillsPage() {
       <ContextMenuTip />
 
       {/* Skills grid / grouped / table view */}
-      {filtered.length > 0 ? (
+      {tabFiltered.length > 0 ? (
         viewType === 'grid' ? (
           <VirtuosoGrid
             useWindowScroll
-            totalCount={filtered.length}
+            totalCount={tabFiltered.length}
             overscan={200}
             components={gridComponents}
             scrollSeekConfiguration={{
@@ -950,7 +955,7 @@ export default function SkillsPage() {
               exit: (velocity) => Math.abs(velocity) < 200,
             }}
             itemContent={(index) => {
-              const skill = filtered[index];
+              const skill = tabFiltered[index];
               return (
                 <SkillPostit
                   skill={skill}
@@ -973,14 +978,14 @@ export default function SkillsPage() {
           />
         ) : viewType === 'grouped' ? (
           <FolderTreeView
-            skills={filtered}
+            skills={tabFiltered}
             totalCount={skills.length}
             isSearching={!!search || filterType !== 'all'}
             stickyTop={toolbarH}
             onClearFilters={(filterType !== 'all' || search) ? () => { setFilterType('all'); setSearch(''); } : undefined}
           />
         ) : (
-          <SkillsTable skills={filtered} />
+          <SkillsTable skills={tabFiltered} />
         )
       ) : (
         <EmptyState
