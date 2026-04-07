@@ -516,4 +516,3 @@ Examples:
   skillshare status --json       Output as JSON
   skillshare status -p           Show project status`)
 }
-

@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
@@ -459,7 +458,6 @@ func writeBinary(r io.Reader, destPath string) error {
 	}
 	return nil
 }
-
 
 func runBrewUpgrade() (string, error) {
 	// Phase 1: brew update (tap refresh)

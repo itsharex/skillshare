@@ -21,12 +21,12 @@ type analyzeTargetGroup struct {
 }
 
 type analyzeTUIModel struct {
-	list        list.Model
-	allItems    []analyzeSkillItem
-	filterText  string
-	filterInput textinput.Model
-	filtering   bool
-	matchCount  int
+	list              list.Model
+	allItems          []analyzeSkillItem
+	filterText        string
+	filterInput       textinput.Model
+	filtering         bool
+	matchCount        int
 	filteredDescChars int
 	filteredBodyChars int
 
