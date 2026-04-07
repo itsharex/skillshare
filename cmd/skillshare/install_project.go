@@ -56,7 +56,7 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 		return installFromProjectConfig(runtime, parsed.opts)
 	}
 
-	cfg := &config.Config{Source: runtime.sourcePath, GitLabHosts: runtime.config.GitLabHosts}
+	cfg := &config.Config{Source: runtime.sourcePath, AgentsSource: runtime.agentsSourcePath, GitLabHosts: runtime.config.GitLabHosts}
 	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
 	if err == nil && parsed.opts.Branch != "" {
 		source.Branch = parsed.opts.Branch
