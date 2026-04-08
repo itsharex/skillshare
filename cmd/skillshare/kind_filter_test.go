@@ -14,7 +14,7 @@ func TestParseKindArg(t *testing.T) {
 		{[]string{"skill"}, kindSkills, []string{}},
 		{[]string{"agents"}, kindAgents, []string{}},
 		{[]string{"agent"}, kindAgents, []string{}},
-		{[]string{"all"}, kindSkills, []string{"all"}},           // "all" no longer a keyword
+		{[]string{"all"}, kindSkills, []string{"all"}},                     // "all" no longer a keyword
 		{[]string{"all", "--json"}, kindSkills, []string{"all", "--json"}}, // falls through to default
 		{[]string{"agents", "tutor"}, kindAgents, []string{"tutor"}},
 		{[]string{"--json"}, kindSkills, []string{"--json"}},
