@@ -84,8 +84,8 @@ func TestStatusProject_All(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectDir, "status", "-p", "all")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Source")  // skill section
-	result.AssertAnyOutputContains(t, "Agents")  // agent section
+	result.AssertAnyOutputContains(t, "Source") // skill section
+	result.AssertAnyOutputContains(t, "Agents") // agent section
 }
 
 // --- check -p agents ---

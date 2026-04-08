@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -142,11 +143,10 @@ targets: {}
 	// Create a skill with metadata (but local source, so check will show "local source")
 	sb.CreateSkill("my-skill", map[string]string{
 		"SKILL.md": "# My Skill",
-		".skillshare-meta.json": `{
-			"source": "/local/path",
-			"type": "local",
-			"installed_at": "2024-01-01T00:00:00Z"
-		}`,
+	})
+	writeMetaEntry(t, filepath.Join(sb.SourcePath, "my-skill"), &install.MetadataEntry{
+		Source: "/local/path",
+		Type:   "local",
 	})
 
 	result := sb.RunCLI("check")
@@ -166,11 +166,10 @@ targets: {}
 	// Create a skill with metadata
 	sb.CreateSkill("json-skill", map[string]string{
 		"SKILL.md": "# JSON Skill",
-		".skillshare-meta.json": `{
-			"source": "/local/path",
-			"type": "local",
-			"installed_at": "2024-01-01T00:00:00Z"
-		}`,
+	})
+	writeMetaEntry(t, filepath.Join(sb.SourcePath, "json-skill"), &install.MetadataEntry{
+		Source: "/local/path",
+		Type:   "local",
 	})
 
 	result := sb.RunCLI("check", "--json")
@@ -523,6 +522,22 @@ func TestCheck_TreeHash_FallbackNoTreeHash(t *testing.T) {
 	}
 }
 
+// writeMetaEntry writes a single metadata entry to .metadata.json in the source root.
+func writeMetaEntry(t *testing.T, skillDir string, entry *install.MetadataEntry) {
+	t.Helper()
+	sourceDir := findSourceRoot(skillDir)
+	rel, _ := filepath.Rel(sourceDir, skillDir)
+
+	store, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatalf("writeMetaEntry: load: %v", err)
+	}
+	store.Set(rel, entry)
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatalf("writeMetaEntry: save: %v", err)
+	}
+}
+
 // ── Tree hash test helpers ────────────────────────────────
 
 func gitRevParse(t *testing.T, dir, ref string) string {
@@ -538,34 +553,44 @@ func gitRevParse(t *testing.T, dir, ref string) string {
 
 func writeMetaWithTreeHash(t *testing.T, skillDir, repoURL, version, treeHash, subdir string) {
 	t.Helper()
-	meta := map[string]any{
-		"source":       repoURL + "//" + subdir,
-		"type":         "github",
-		"repo_url":     repoURL,
-		"version":      version,
-		"tree_hash":    treeHash,
-		"subdir":       subdir,
-		"installed_at": "2026-01-01T00:00:00Z",
+	sourceDir := findSourceRoot(skillDir)
+	rel, _ := filepath.Rel(sourceDir, skillDir)
+
+	store, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatalf("writeMetaWithTreeHash: load: %v", err)
 	}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatalf("writeMetaWithTreeHash: %v", err)
+	store.Set(rel, &install.MetadataEntry{
+		Source:   repoURL + "//" + subdir,
+		Type:     "github",
+		RepoURL:  repoURL,
+		Version:  version,
+		TreeHash: treeHash,
+		Subdir:   subdir,
+	})
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatalf("writeMetaWithTreeHash: save: %v", err)
 	}
 }
 
 func writeMetaNoTreeHash(t *testing.T, skillDir, repoURL, version, subdir string) {
 	t.Helper()
-	meta := map[string]any{
-		"source":       repoURL + "//" + subdir,
-		"type":         "github",
-		"repo_url":     repoURL,
-		"version":      version,
-		"subdir":       subdir,
-		"installed_at": "2026-01-01T00:00:00Z",
+	sourceDir := findSourceRoot(skillDir)
+	rel, _ := filepath.Rel(sourceDir, skillDir)
+
+	store, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatalf("writeMetaNoTreeHash: load: %v", err)
 	}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatalf("writeMetaNoTreeHash: %v", err)
+	store.Set(rel, &install.MetadataEntry{
+		Source:  repoURL + "//" + subdir,
+		Type:    "github",
+		RepoURL: repoURL,
+		Version: version,
+		Subdir:  subdir,
+	})
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatalf("writeMetaNoTreeHash: save: %v", err)
 	}
 }
 

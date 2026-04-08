@@ -401,7 +401,7 @@ func TestHandleUninstallRepo_PrunesNestedMembersByPrefix(t *testing.T) {
 
 	// Store with the repo's own entry + a sub-skill using name prefix
 	s.skillsStore = install.NewMetadataStore()
-	s.skillsStore.Set("org/_team-skills", &install.MetadataEntry{Tracked: true})                          // repo entry
+	s.skillsStore.Set("org/_team-skills", &install.MetadataEntry{Tracked: true})                                      // repo entry
 	s.skillsStore.Set("org/_team-skills/sub-skill", &install.MetadataEntry{Group: "org/_team-skills", Tracked: true}) // member
 	s.skillsStore.Set("standalone", &install.MetadataEntry{})
 

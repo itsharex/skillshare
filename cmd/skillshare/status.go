@@ -19,13 +19,13 @@ import (
 
 // statusJSONOutput is the JSON representation for status --json output.
 type statusJSONOutput struct {
-	Source       statusJSONSource    `json:"source"`
-	SkillCount   int                 `json:"skill_count"`
-	TrackedRepos []statusJSONRepo    `json:"tracked_repos"`
-	Targets      []statusJSONTarget  `json:"targets"`
-	Agents       *statusJSONAgents   `json:"agents,omitempty"`
-	Audit        statusJSONAudit     `json:"audit"`
-	Version      string              `json:"version"`
+	Source       statusJSONSource   `json:"source"`
+	SkillCount   int                `json:"skill_count"`
+	TrackedRepos []statusJSONRepo   `json:"tracked_repos"`
+	Targets      []statusJSONTarget `json:"targets"`
+	Agents       *statusJSONAgents  `json:"agents,omitempty"`
+	Audit        statusJSONAudit    `json:"audit"`
+	Version      string             `json:"version"`
 }
 
 type statusJSONSource struct {

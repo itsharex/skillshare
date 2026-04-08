@@ -38,10 +38,13 @@ targets: {}
 		t.Error("skill should be installed to source directory")
 	}
 
-	// Verify metadata was created
-	metaPath := filepath.Join(sb.SourcePath, "external-skill", ".skillshare-meta.json")
-	if !sb.FileExists(metaPath) {
-		t.Error("metadata file should be created")
+	// Verify metadata was created in centralized .metadata.json
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
+	}
+	if !store.Has("external-skill") {
+		t.Error("metadata entry should be created for external-skill")
 	}
 }
 
@@ -205,10 +208,16 @@ targets: {}
 		t.Fatalf("expected install action cloned, got %s", result.Action)
 	}
 
-	metaPath := filepath.Join(sb.SourcePath, "git-skill", ".skillshare-meta.json")
-	metaContent := sb.ReadFile(metaPath)
-	if !strings.Contains(metaContent, "\"source\": \"file://") {
-		t.Fatalf("expected metadata source to use file:// clone URL")
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
+	}
+	entry := store.Get("git-skill")
+	if entry == nil {
+		t.Fatalf("expected metadata entry for git-skill")
+	}
+	if !strings.Contains(entry.Source, "file://") {
+		t.Fatalf("expected metadata source to use file:// clone URL, got %q", entry.Source)
 	}
 
 	content := sb.ReadFile(filepath.Join(sb.SourcePath, "git-skill", "SKILL.md"))
@@ -230,9 +239,13 @@ targets: {}
 	updateResult.AssertSuccess(t)
 	updateResult.AssertAnyOutputContains(t, "Installed")
 
-	metaContent = sb.ReadFile(metaPath)
-	if !strings.Contains(metaContent, "\"source\": \"file://") {
-		t.Fatalf("expected metadata source to use file:// clone URL")
+	store, err = install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("failed to reload metadata: %v", err)
+	}
+	entry = store.Get("git-skill")
+	if entry == nil || !strings.Contains(entry.Source, "file://") {
+		t.Fatalf("expected metadata source to use file:// clone URL after update")
 	}
 
 	content = sb.ReadFile(filepath.Join(sb.SourcePath, "git-skill", "SKILL.md"))
@@ -405,16 +418,22 @@ targets: {}
 	result := sb.RunCLI("install", localSkillPath)
 	result.AssertSuccess(t)
 
-	// Read and verify metadata
-	metaContent := sb.ReadFile(filepath.Join(sb.SourcePath, "meta-test-skill", ".skillshare-meta.json"))
-
-	if !strings.Contains(metaContent, `"type": "local"`) {
-		t.Error("metadata should contain type: local")
+	// Read and verify metadata from centralized .metadata.json
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
 	}
-	if !strings.Contains(metaContent, "meta-test-skill") {
+	entry := store.Get("meta-test-skill")
+	if entry == nil {
+		t.Fatal("metadata entry should exist for meta-test-skill")
+	}
+	if entry.Type != "local" {
+		t.Errorf("metadata type should be 'local', got %q", entry.Type)
+	}
+	if !strings.Contains(entry.Source, "meta-test-skill") {
 		t.Error("metadata should contain source path")
 	}
-	if !strings.Contains(metaContent, "installed_at") {
+	if entry.InstalledAt.IsZero() {
 		t.Error("metadata should contain installed_at timestamp")
 	}
 }

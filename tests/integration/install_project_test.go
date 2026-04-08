@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -84,12 +85,22 @@ func TestInstallProject_FromConfig_SkipsExisting(t *testing.T) {
 		"SKILL.md": "# Already",
 	})
 
-	// Write config referencing it
+	// Write metadata entry so config-based install sees it
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	store, err := install.LoadMetadata(skillsDir)
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
+	}
+	store.Set("already-here", &install.MetadataEntry{
+		Source: "someone/skills/already-here",
+		Type:   "github",
+	})
+	if err := store.Save(skillsDir); err != nil {
+		t.Fatalf("failed to save metadata: %v", err)
+	}
+
 	sb.WriteProjectConfig(projectRoot, `targets:
   - claude
-skills:
-  - name: already-here
-    source: someone/skills/already-here
 `)
 
 	// install (no args) → should skip existing

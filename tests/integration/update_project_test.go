@@ -3,11 +3,11 @@
 package integration
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -42,9 +42,7 @@ func TestUpdateProject_DryRun(t *testing.T) {
 	skillDir := sb.CreateProjectSkill(projectRoot, "remote", map[string]string{
 		"SKILL.md": "# Remote",
 	})
-	meta := map[string]interface{}{"source": "/tmp/fake-source", "type": "local"}
-	metaJSON, _ := json.Marshal(meta)
-	os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), metaJSON, 0644)
+	writeProjectMeta(t, skillDir)
 
 	result := sb.RunCLIInDir(projectRoot, "update", "remote", "--dry-run", "-p")
 	result.AssertSuccess(t)
@@ -69,10 +67,19 @@ func TestUpdateProject_AllDryRun_SkipsLocal(t *testing.T) {
 
 func writeProjectMeta(t *testing.T, skillDir string) {
 	t.Helper()
-	meta := map[string]any{"source": "/tmp/fake-source", "type": "local"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatalf("failed to write meta: %v", err)
+	sourceDir := findSourceRoot(skillDir)
+	rel, _ := filepath.Rel(sourceDir, skillDir)
+
+	store, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatalf("writeProjectMeta: load: %v", err)
+	}
+	store.Set(rel, &install.MetadataEntry{
+		Source: "/tmp/fake-source",
+		Type:   "local",
+	})
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatalf("writeProjectMeta: save: %v", err)
 	}
 }
 
@@ -392,21 +399,21 @@ func TestUpdateProject_BatchAll_SubdirSkills_NoDuplication(t *testing.T) {
 	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
 	repoURL := "file://" + remoteDir
 
+	store, _ := install.LoadMetadata(skillsDir)
 	for _, name := range []string{"alpha", "beta"} {
 		localDir := filepath.Join(skillsDir, name)
 		os.MkdirAll(localDir, 0755)
 		os.WriteFile(filepath.Join(localDir, "SKILL.md"),
 			[]byte("---\nname: "+name+"\n---\n# "+name+" v1"), 0644)
 
-		meta := map[string]any{
-			"source":   repoURL + "//skills/" + name,
-			"type":     "git",
-			"repo_url": repoURL,
-			"subdir":   "skills/" + name,
-		}
-		metaJSON, _ := json.Marshal(meta)
-		os.WriteFile(filepath.Join(localDir, ".skillshare-meta.json"), metaJSON, 0644)
+		store.Set(name, &install.MetadataEntry{
+			Source:  repoURL + "//skills/" + name,
+			Type:    "git",
+			RepoURL: repoURL,
+			Subdir:  "skills/" + name,
+		})
 	}
+	store.Save(skillsDir)
 
 	// 3. First update --all
 	result1 := sb.RunCLIInDir(projectRoot, "update", "--all", "-p", "--skip-audit")

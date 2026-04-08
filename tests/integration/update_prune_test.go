@@ -3,11 +3,11 @@
 package integration
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -289,18 +289,24 @@ func TestUpdate_Prune_NestedIntoSkill(t *testing.T) {
 	}
 }
 
-// writeMetaForRepo writes metadata matching a repo-installed skill.
+// writeMetaForRepo writes metadata matching a repo-installed skill to the centralized store.
 func writeMetaForRepo(t *testing.T, skillDir, repoURL, subdir string) {
 	t.Helper()
-	meta := map[string]any{
-		"source":   repoURL + "//" + subdir,
-		"type":     "github",
-		"repo_url": repoURL,
-		"subdir":   subdir,
-		"version":  "abc123",
+	sourceDir := findSourceRoot(skillDir)
+	rel, _ := filepath.Rel(sourceDir, skillDir)
+
+	store, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatalf("writeMetaForRepo: load: %v", err)
 	}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatalf("writeMetaForRepo: %v", err)
+	store.Set(rel, &install.MetadataEntry{
+		Source:  repoURL + "//" + subdir,
+		Type:    "github",
+		RepoURL: repoURL,
+		Subdir:  subdir,
+		Version: "abc123",
+	})
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatalf("writeMetaForRepo: save: %v", err)
 	}
 }

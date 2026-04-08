@@ -85,8 +85,8 @@ func TestStatus_All_ShowsBoth(t *testing.T) {
 
 	result := sb.RunCLI("status", "all")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Source")  // skill section
-	result.AssertAnyOutputContains(t, "Agents")  // agent section
+	result.AssertAnyOutputContains(t, "Source") // skill section
+	result.AssertAnyOutputContains(t, "Agents") // agent section
 }
 
 // --- diff agents ---

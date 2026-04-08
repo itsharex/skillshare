@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -51,11 +53,10 @@ func TestList_Verbose_ShowsDetails(t *testing.T) {
 	// Create skill with metadata
 	sb.CreateSkill("meta-skill", map[string]string{
 		"SKILL.md": "# Meta Skill",
-		".skillshare-meta.json": `{
-  "source": "github.com/user/repo/path/to/skill",
-  "type": "github-subdir",
-  "installed_at": "2024-01-15T10:30:00Z"
-}`,
+	})
+	writeListMeta(t, sb.SourcePath, "meta-skill", &install.MetadataEntry{
+		Source: "github.com/user/repo/path/to/skill",
+		Type:   "github-subdir",
 	})
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
@@ -187,11 +188,10 @@ func TestList_ShowsSourceInfo(t *testing.T) {
 	// Create skill with metadata (installed)
 	sb.CreateSkill("installed-skill", map[string]string{
 		"SKILL.md": "# Installed",
-		".skillshare-meta.json": `{
-  "source": "github.com/example/repo",
-  "type": "github",
-  "installed_at": "2024-01-15T10:30:00Z"
-}`,
+	})
+	writeListMeta(t, sb.SourcePath, "installed-skill", &install.MetadataEntry{
+		Source: "github.com/example/repo",
+		Type:   "github",
 	})
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
@@ -298,11 +298,10 @@ func TestList_FilterByType_Local(t *testing.T) {
 	// GitHub skill (has metadata with source)
 	sb.CreateSkill("from-github", map[string]string{
 		"SKILL.md": "# GitHub",
-		".skillshare-meta.json": `{
-  "source": "github.com/user/repo",
-  "type": "github",
-  "installed_at": "2024-06-01T00:00:00Z"
-}`,
+	})
+	writeListMeta(t, sb.SourcePath, "from-github", &install.MetadataEntry{
+		Source: "github.com/user/repo",
+		Type:   "github",
 	})
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
@@ -326,11 +325,10 @@ func TestList_FilterByType_Github(t *testing.T) {
 	// GitHub skill (has metadata with source)
 	sb.CreateSkill("from-github", map[string]string{
 		"SKILL.md": "# GitHub",
-		".skillshare-meta.json": `{
-  "source": "github.com/user/repo",
-  "type": "github",
-  "installed_at": "2024-06-01T00:00:00Z"
-}`,
+	})
+	writeListMeta(t, sb.SourcePath, "from-github", &install.MetadataEntry{
+		Source: "github.com/user/repo",
+		Type:   "github",
 	})
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
@@ -350,19 +348,21 @@ func TestList_SortNewest(t *testing.T) {
 
 	sb.CreateSkill("old-skill", map[string]string{
 		"SKILL.md": "# Old",
-		".skillshare-meta.json": `{
-  "source": "github.com/user/old",
-  "type": "github",
-  "installed_at": "2023-01-01T00:00:00Z"
-}`,
+	})
+	oldTime, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
+	writeListMeta(t, sb.SourcePath, "old-skill", &install.MetadataEntry{
+		Source:      "github.com/user/old",
+		Type:        "github",
+		InstalledAt: oldTime,
 	})
 	sb.CreateSkill("new-skill", map[string]string{
 		"SKILL.md": "# New",
-		".skillshare-meta.json": `{
-  "source": "github.com/user/new",
-  "type": "github",
-  "installed_at": "2025-12-01T00:00:00Z"
-}`,
+	})
+	newTime, _ := time.Parse(time.RFC3339, "2025-12-01T00:00:00Z")
+	writeListMeta(t, sb.SourcePath, "new-skill", &install.MetadataEntry{
+		Source:      "github.com/user/new",
+		Type:        "github",
+		InstalledAt: newTime,
 	})
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
@@ -423,11 +423,10 @@ func TestList_SearchWithFilter(t *testing.T) {
 	// GitHub skill with "react" in source
 	sb.CreateSkill("react-remote", map[string]string{
 		"SKILL.md": "# React Remote",
-		".skillshare-meta.json": `{
-  "source": "github.com/user/react-kit",
-  "type": "github",
-  "installed_at": "2024-06-01T00:00:00Z"
-}`,
+	})
+	writeListMeta(t, sb.SourcePath, "react-remote", &install.MetadataEntry{
+		Source: "github.com/user/react-kit",
+		Type:   "github",
 	})
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
@@ -449,8 +448,11 @@ func TestList_JSON_OutputsValidJSON(t *testing.T) {
 
 	sb.CreateSkill("alpha", map[string]string{"SKILL.md": "# Alpha"})
 	sb.CreateSkill("beta", map[string]string{
-		"SKILL.md":              "# Beta",
-		".skillshare-meta.json": `{"source":"github.com/user/repo","type":"github","installed_at":"2024-06-01T00:00:00Z"}`,
+		"SKILL.md": "# Beta",
+	})
+	writeListMeta(t, sb.SourcePath, "beta", &install.MetadataEntry{
+		Source: "github.com/user/repo",
+		Type:   "github",
 	})
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
@@ -562,5 +564,18 @@ func TestList_NoTUI_WithPattern(t *testing.T) {
 	}
 	if strings.Contains(result.Stdout, "vue-helper") {
 		t.Errorf("should not contain 'vue-helper' when filtered")
+	}
+}
+
+// writeListMeta writes a metadata entry to the centralized .metadata.json in sourceDir.
+func writeListMeta(t *testing.T, sourceDir, skillName string, entry *install.MetadataEntry) {
+	t.Helper()
+	store, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatalf("writeListMeta: load: %v", err)
+	}
+	store.Set(skillName, entry)
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatalf("writeListMeta: save: %v", err)
 	}
 }

@@ -38,6 +38,9 @@ func (m *SkillMeta) EffectiveKind() string {
 
 // Deprecated: WriteMeta writes per-skill sidecar files.
 // New code should use MetadataStore.Set() + MetadataStore.Save() instead.
+//
+// For backward compatibility during migration, WriteMeta also writes to the
+// centralized .metadata.json in the source root directory.
 func WriteMeta(skillPath string, meta *SkillMeta) error {
 	metaPath := filepath.Join(skillPath, MetaFileName)
 
@@ -50,7 +53,70 @@ func WriteMeta(skillPath string, meta *SkillMeta) error {
 		return fmt.Errorf("failed to write metadata: %w", err)
 	}
 
+	// Dual-write: also update centralized .metadata.json
+	writeMetaToCentralized(skillPath, meta)
+
 	return nil
+}
+
+// writeMetaToCentralized writes an entry to the centralized .metadata.json store.
+// Best-effort: errors are silently ignored since the sidecar is the primary write.
+func writeMetaToCentralized(skillPath string, meta *SkillMeta) {
+	sourceDir := findSkillsRoot(skillPath)
+	if sourceDir == "" {
+		return
+	}
+	rel, err := filepath.Rel(sourceDir, skillPath)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		return
+	}
+
+	store, loadErr := LoadMetadata(sourceDir)
+	if loadErr != nil {
+		return
+	}
+
+	// Split rel path into group + name (e.g., "frontend/pdf-skill" → group="frontend", name="pdf-skill")
+	rel = filepath.ToSlash(rel)
+	name := rel
+	group := ""
+	if idx := strings.LastIndex(rel, "/"); idx >= 0 {
+		group = rel[:idx]
+		name = rel[idx+1:]
+	}
+
+	entry := &MetadataEntry{
+		Source:      meta.Source,
+		Kind:        meta.Kind,
+		Type:        meta.Type,
+		Group:       group,
+		InstalledAt: meta.InstalledAt,
+		RepoURL:     meta.RepoURL,
+		Subdir:      meta.Subdir,
+		Version:     meta.Version,
+		TreeHash:    meta.TreeHash,
+		FileHashes:  meta.FileHashes,
+		Branch:      meta.Branch,
+	}
+	store.Set(name, entry)
+	_ = store.Save(sourceDir)
+}
+
+// findSkillsRoot walks up from skillPath to find the ancestor directory named "skills".
+// Returns "" if not found.
+func findSkillsRoot(skillPath string) string {
+	dir := filepath.Dir(skillPath) // start from parent
+	for {
+		base := filepath.Base(dir)
+		if base == "skills" {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
 
 // Deprecated: ReadMeta reads per-skill sidecar files.

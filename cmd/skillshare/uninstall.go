@@ -1075,15 +1075,23 @@ func cmdUninstall(args []string) error {
 			removedNames[t.name] = true
 		}
 		for _, name := range skillsStore.List() {
-			if removedNames[name] {
+			// Direct match by bare name or full path (group/name)
+			entry := skillsStore.Get(name)
+			fullName := name
+			if entry != nil && entry.Group != "" {
+				fullName = entry.Group + "/" + name
+			}
+			if removedNames[name] || removedNames[fullName] {
 				skillsStore.Remove(name)
 				continue
 			}
-			// When a group directory is uninstalled, also remove its member skills
-			for rn := range removedNames {
-				if strings.HasPrefix(name, rn+"/") {
-					skillsStore.Remove(name)
-					break
+			// When a group directory is uninstalled, also remove its member skills by group field
+			if entry != nil && entry.Group != "" {
+				for rn := range removedNames {
+					if entry.Group == rn || strings.HasPrefix(entry.Group, rn+"/") {
+						skillsStore.Remove(name)
+						break
+					}
 				}
 			}
 		}

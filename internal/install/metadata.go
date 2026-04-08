@@ -69,6 +69,26 @@ func (s *MetadataStore) Has(name string) bool {
 	return ok
 }
 
+// GetByPath looks up an entry by its full relative path (e.g. "mygroup/keep-nested").
+// It first tries a direct key lookup, then falls back to matching group+basename.
+// This handles the case where entries are stored with basename keys but have a Group field.
+func (s *MetadataStore) GetByPath(relPath string) *MetadataEntry {
+	// Direct lookup (works for top-level skills where key == relPath)
+	if e := s.Entries[relPath]; e != nil {
+		return e
+	}
+	// Basename + group lookup (for nested skills stored with basename key)
+	base := filepath.Base(relPath)
+	group := ""
+	if dir := filepath.Dir(relPath); dir != "." {
+		group = filepath.ToSlash(dir)
+	}
+	if e := s.Entries[base]; e != nil && e.Group == group {
+		return e
+	}
+	return nil
+}
+
 // List returns sorted entry names.
 func (s *MetadataStore) List() []string {
 	names := make([]string, 0, len(s.Entries))

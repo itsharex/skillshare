@@ -5,9 +5,9 @@ package integration
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -413,17 +413,13 @@ func TestUninstall_GroupDir_RemovesConfigEntries(t *testing.T) {
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
 targets: {}
-skills:
-  - name: skill-a
-    source: github.com/org/repo/skill-a
-    group: mygroup
-  - name: skill-b
-    source: github.com/org/repo/skill-b
-    group: mygroup
-  - name: skill-c
-    source: github.com/org/repo/skill-c
-    group: other
 `)
+	// Write metadata directly to .metadata.json
+	store := install.NewMetadataStore()
+	store.Set("skill-a", &install.MetadataEntry{Source: "github.com/org/repo/skill-a", Group: "mygroup"})
+	store.Set("skill-b", &install.MetadataEntry{Source: "github.com/org/repo/skill-b", Group: "mygroup"})
+	store.Set("skill-c", &install.MetadataEntry{Source: "github.com/org/repo/skill-c", Group: "other"})
+	store.Save(sb.SourcePath)
 
 	result := sb.RunCLI("uninstall", "mygroup", "-f")
 	result.AssertSuccess(t)
@@ -433,18 +429,20 @@ skills:
 		t.Error("mygroup directory should be removed")
 	}
 
-	// Registry should no longer contain mygroup skills
-	registryPath := filepath.Join(sb.SourcePath, "registry.yaml")
-	registryContent := sb.ReadFile(registryPath)
-	if strings.Contains(registryContent, "skill-a") {
-		t.Error("registry should not contain skill-a after group uninstall")
+	// Metadata should no longer contain mygroup skills
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("load metadata: %v", err)
 	}
-	if strings.Contains(registryContent, "skill-b") {
-		t.Error("registry should not contain skill-b after group uninstall")
+	if store.Has("skill-a") {
+		t.Error("metadata should not contain skill-a after group uninstall")
+	}
+	if store.Has("skill-b") {
+		t.Error("metadata should not contain skill-b after group uninstall")
 	}
 	// other group should be untouched
-	if !strings.Contains(registryContent, "skill-c") {
-		t.Error("registry should still contain skill-c from other group")
+	if !store.Has("skill-c") {
+		t.Error("metadata should still contain skill-c from other group")
 	}
 }
 
@@ -488,31 +486,29 @@ func TestUninstall_GroupDirWithTrailingSlash_RemovesConfigEntries(t *testing.T) 
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
 targets: {}
-skills:
-  - name: scan
-    source: github.com/org/repo/scan
-    group: security
-  - name: hardening
-    source: github.com/org/repo/hardening
-    group: security
-  - name: keep
-    source: github.com/org/repo/keep
-    group: other
 `)
+	// Write metadata directly to .metadata.json
+	store := install.NewMetadataStore()
+	store.Set("scan", &install.MetadataEntry{Source: "github.com/org/repo/scan", Group: "security"})
+	store.Set("hardening", &install.MetadataEntry{Source: "github.com/org/repo/hardening", Group: "security"})
+	store.Set("keep", &install.MetadataEntry{Source: "github.com/org/repo/keep", Group: "other"})
+	store.Save(sb.SourcePath)
 
 	result := sb.RunCLI("uninstall", "security/", "-f")
 	result.AssertSuccess(t)
 
-	registryPath := filepath.Join(sb.SourcePath, "registry.yaml")
-	registryContent := sb.ReadFile(registryPath)
-	if strings.Contains(registryContent, "scan") {
-		t.Error("registry should not contain scan after security/ uninstall")
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("load metadata: %v", err)
 	}
-	if strings.Contains(registryContent, "hardening") {
-		t.Error("registry should not contain hardening after security/ uninstall")
+	if store.Has("scan") {
+		t.Error("metadata should not contain scan after security/ uninstall")
 	}
-	if !strings.Contains(registryContent, "keep") {
-		t.Error("registry should still contain keep from other group")
+	if store.Has("hardening") {
+		t.Error("metadata should not contain hardening after security/ uninstall")
+	}
+	if !store.Has("keep") {
+		t.Error("metadata should still contain keep from other group")
 	}
 }
 
@@ -546,11 +542,13 @@ skills:
 		}
 	}
 
-	// Registry skills should be cleared
-	registryPath := filepath.Join(sb.SourcePath, "registry.yaml")
-	registryContent := sb.ReadFile(registryPath)
-	if strings.Contains(registryContent, "alpha") || strings.Contains(registryContent, "beta") || strings.Contains(registryContent, "gamma") {
-		t.Error("registry should not contain any skills after --all uninstall")
+	// Metadata should be cleared of all skills
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("load metadata: %v", err)
+	}
+	if store.Has("alpha") || store.Has("beta") || store.Has("gamma") {
+		t.Error("metadata should not contain any skills after --all uninstall")
 	}
 }
 

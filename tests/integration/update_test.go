@@ -3,22 +3,47 @@
 package integration
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
-// writeMeta writes a minimal .skillshare-meta.json to make a skill updatable.
+// writeMeta writes a minimal metadata entry to .metadata.json to make a skill updatable.
+// It finds the source root ("skills" ancestor) and uses the relative path as the key.
 func writeMeta(t *testing.T, skillDir string) {
 	t.Helper()
-	meta := map[string]any{"source": "/tmp/fake-source", "type": "local"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatalf("failed to write meta: %v", err)
+	sourceDir := findSourceRoot(skillDir)
+	rel, _ := filepath.Rel(sourceDir, skillDir)
+
+	store, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
+	}
+	store.Set(rel, &install.MetadataEntry{
+		Source: "/tmp/fake-source",
+		Type:   "local",
+	})
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatalf("failed to save metadata: %v", err)
+	}
+}
+
+// findSourceRoot walks up from skillDir to find the "skills" ancestor directory.
+func findSourceRoot(skillDir string) string {
+	dir := skillDir
+	for {
+		if filepath.Base(dir) == "skills" {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return filepath.Dir(skillDir)
+		}
+		dir = parent
 	}
 }
 

@@ -244,7 +244,7 @@ func cmdUpdate(args []string) error {
 				skillDir := filepath.Dir(path)
 				rel, _ := filepath.Rel(walkRoot, skillDir)
 				if rel != "." && !seen[rel] {
-					if entry := metaStore.Get(rel); entry != nil && entry.Source != "" {
+					if entry := metaStore.GetByPath(rel); entry != nil && entry.Source != "" {
 						seen[rel] = true
 						targets = append(targets, updateTarget{name: rel, path: skillDir, isRepo: false, meta: entry})
 					}

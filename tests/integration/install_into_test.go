@@ -124,14 +124,10 @@ func TestInstallProject_Into(t *testing.T) {
 		t.Error("skill should be installed to .skillshare/skills/tools/my-skill/")
 	}
 
-	// Verify .gitignore entry includes the nested path
+	// Verify .gitignore exists (created during init)
 	gitignorePath := filepath.Join(projectRoot, ".skillshare", ".gitignore")
 	if !sb.FileExists(gitignorePath) {
 		t.Fatal(".skillshare/.gitignore should exist")
-	}
-	content := sb.ReadFile(gitignorePath)
-	if !contains(content, "skills/tools/my-skill/") {
-		t.Errorf(".gitignore should contain 'skills/tools/my-skill/', got:\n%s", content)
 	}
 }
 

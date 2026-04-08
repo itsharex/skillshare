@@ -3,7 +3,6 @@
 package integration
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -71,14 +70,17 @@ func TestInstallBranch_TrackedRepo(t *testing.T) {
 		t.Errorf("main-skill should exist at %s: %v", mainSkillPath, err)
 	}
 
-	// Verify branch is written to registry.yaml
-	registryPath := filepath.Join(sb.SourcePath, "registry.yaml")
-	regData, err := os.ReadFile(registryPath)
+	// Verify branch is written to .metadata.json
+	store, err := install.LoadMetadata(sb.SourcePath)
 	if err != nil {
-		t.Fatalf("read registry: %v", err)
+		t.Fatalf("load metadata: %v", err)
 	}
-	if !strings.Contains(string(regData), "branch: dev") {
-		t.Errorf("registry.yaml should contain 'branch: dev', got:\n%s", regData)
+	entry := store.Get("_test-repo")
+	if entry == nil {
+		t.Fatal("expected metadata entry for _test-repo")
+	}
+	if entry.Branch != "dev" {
+		t.Errorf("metadata branch = %q, want %q", entry.Branch, "dev")
 	}
 }
 
@@ -198,19 +200,17 @@ func TestInstallBranch_MetadataPersistence(t *testing.T) {
 	result := sb.RunCLI("install", "file://"+remoteRepo, "--branch", "staging", "--all", "--skip-audit")
 	result.AssertSuccess(t)
 
-	// Check .skillshare-meta.json has branch field
-	metaPath := filepath.Join(sb.SourcePath, "my-skill", ".skillshare-meta.json")
-	data, err := os.ReadFile(metaPath)
+	// Check .metadata.json has branch field
+	store, err := install.LoadMetadata(sb.SourcePath)
 	if err != nil {
-		t.Fatalf("read meta: %v", err)
+		t.Fatalf("load metadata: %v", err)
 	}
-
-	var meta install.SkillMeta
-	if err := json.Unmarshal(data, &meta); err != nil {
-		t.Fatalf("unmarshal meta: %v", err)
+	entry := store.Get("my-skill")
+	if entry == nil {
+		t.Fatal("expected metadata entry for my-skill")
 	}
-	if meta.Branch != "staging" {
-		t.Errorf("meta.Branch = %q, want %q", meta.Branch, "staging")
+	if entry.Branch != "staging" {
+		t.Errorf("entry.Branch = %q, want %q", entry.Branch, "staging")
 	}
 }
 
@@ -248,17 +248,16 @@ func TestInstallBranch_UpdatePreservesBranch(t *testing.T) {
 	result.AssertSuccess(t)
 
 	// Verify branch is persisted in metadata
-	metaPath := filepath.Join(sb.SourcePath, "updatable", ".skillshare-meta.json")
-	data, err := os.ReadFile(metaPath)
+	store, err := install.LoadMetadata(sb.SourcePath)
 	if err != nil {
-		t.Fatalf("read meta: %v", err)
+		t.Fatalf("load metadata: %v", err)
 	}
-	var meta install.SkillMeta
-	if err := json.Unmarshal(data, &meta); err != nil {
-		t.Fatalf("unmarshal meta: %v", err)
+	entry := store.Get("updatable")
+	if entry == nil {
+		t.Fatal("expected metadata entry for updatable")
 	}
-	if meta.Branch != "dev" {
-		t.Errorf("meta.Branch = %q, want %q", meta.Branch, "dev")
+	if entry.Branch != "dev" {
+		t.Errorf("entry.Branch = %q, want %q", entry.Branch, "dev")
 	}
 
 	// Push update on dev branch only

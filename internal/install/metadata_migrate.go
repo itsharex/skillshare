@@ -21,7 +21,11 @@ func LoadMetadataWithMigration(dir, kind string) (*MetadataStore, error) {
 	store := NewMetadataStore()
 
 	// Phase 1: Migrate registry.yaml entries
+	// Look in dir itself and its parent (registry.yaml may live in .skillshare/ while dir is .skillshare/skills/)
 	migrateRegistryEntries(store, dir, kind)
+	if parent := filepath.Dir(dir); parent != dir {
+		migrateRegistryEntries(store, parent, kind)
+	}
 
 	// Phase 2: Migrate sidecar .skillshare-meta.json files
 	if kind == "agent" {
@@ -37,8 +41,11 @@ func LoadMetadataWithMigration(dir, kind string) (*MetadataStore, error) {
 		}
 	}
 
-	// Phase 4: Clean up old registry.yaml
+	// Phase 4: Clean up old registry.yaml (in dir and parent)
 	cleanupOldRegistry(dir)
+	if parent := filepath.Dir(dir); parent != dir {
+		cleanupOldRegistry(parent)
+	}
 
 	return store, nil
 }

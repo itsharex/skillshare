@@ -124,7 +124,7 @@ func resolveGroupUpdatable(group, sourceDir string) ([]updateTarget, error) {
 
 		// Skill with metadata (centralized store)
 		store, _ := install.LoadMetadata(resolvedSourceDir)
-		if entry := store.Get(rel); entry != nil && entry.Source != "" {
+		if entry := store.GetByPath(rel); entry != nil && entry.Source != "" {
 			matches = append(matches, updateTarget{name: rel, path: path, isRepo: false, meta: entry})
 			return filepath.SkipDir
 		}

@@ -10,41 +10,27 @@ import (
 )
 
 func getUpdatableSkillsImpl(sourceDir string) ([]string, error) {
-	var skills []string
-
-	walkRoot := utils.ResolveSymlink(sourceDir)
-	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if path == walkRoot {
-			return nil
-		}
-		// Skip .git directories
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
-		}
-		// Skip tracked repo directories (start with _)
-		if info.IsDir() && len(info.Name()) > 0 && info.Name()[0] == '_' {
-			return filepath.SkipDir
-		}
-		// Look for metadata files
-		if !info.IsDir() && info.Name() == MetaFileName {
-			skillDir := filepath.Dir(path)
-			relPath, relErr := filepath.Rel(walkRoot, skillDir)
-			if relErr != nil || relPath == "." {
-				return nil
-			}
-			meta, metaErr := ReadMeta(skillDir)
-			if metaErr != nil || meta == nil || meta.Source == "" {
-				return nil
-			}
-			skills = append(skills, relPath)
-		}
-		return nil
-	})
+	store, err := LoadMetadata(sourceDir)
 	if err != nil {
 		return nil, err
+	}
+
+	var skills []string
+	for _, name := range store.List() {
+		entry := store.Get(name)
+		if entry == nil || entry.Source == "" {
+			continue
+		}
+		// Skip tracked repos (they are handled separately)
+		if entry.Tracked {
+			continue
+		}
+		// Build the relative path: group/name or just name
+		relPath := name
+		if entry.Group != "" {
+			relPath = entry.Group + "/" + name
+		}
+		skills = append(skills, relPath)
 	}
 	return skills, nil
 }
@@ -56,35 +42,26 @@ func FindRepoInstalls(sourceDir, cloneURL string) []string {
 	if cloneURL == "" {
 		return nil
 	}
-	var matches []string
 
-	walkRoot := utils.ResolveSymlink(sourceDir)
-	filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil || path == walkRoot {
-			return nil
-		}
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
-		}
-		if info.IsDir() && len(info.Name()) > 0 && info.Name()[0] == '_' {
-			return filepath.SkipDir
-		}
-		if !info.IsDir() && info.Name() == MetaFileName {
-			skillDir := filepath.Dir(path)
-			relPath, relErr := filepath.Rel(walkRoot, skillDir)
-			if relErr != nil || relPath == "." {
-				return nil
-			}
-			meta, metaErr := ReadMeta(skillDir)
-			if metaErr != nil || meta == nil {
-				return nil
-			}
-			if repoURLsMatch(meta.RepoURL, cloneURL) {
-				matches = append(matches, relPath)
-			}
-		}
+	store, err := LoadMetadata(sourceDir)
+	if err != nil {
 		return nil
-	})
+	}
+
+	var matches []string
+	for _, name := range store.List() {
+		entry := store.Get(name)
+		if entry == nil || entry.Tracked {
+			continue
+		}
+		if repoURLsMatch(entry.RepoURL, cloneURL) {
+			relPath := name
+			if entry.Group != "" {
+				relPath = entry.Group + "/" + name
+			}
+			matches = append(matches, relPath)
+		}
+	}
 	return matches
 }
 

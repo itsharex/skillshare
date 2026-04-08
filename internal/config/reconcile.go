@@ -46,10 +46,21 @@ func ReconcileGlobalSkills(cfg *Config, store *install.MetadataStore) error {
 			return nil
 		}
 
+		fullPath := filepath.ToSlash(relPath)
+
+		// Extract basename (key) and group from the relative path.
+		// The store uses basename as key and Group for the parent path.
+		name := fullPath
+		group := ""
+		if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
+			group = fullPath[:idx]
+			name = fullPath[idx+1:]
+		}
+
 		var source string
 		tracked := isGitRepo(path)
 
-		existing := store.Get(filepath.ToSlash(relPath))
+		existing := store.Get(name)
 		if existing != nil && existing.Source != "" {
 			source = existing.Source
 		} else if tracked {
@@ -59,8 +70,7 @@ func ReconcileGlobalSkills(cfg *Config, store *install.MetadataStore) error {
 			return nil
 		}
 
-		fullPath := filepath.ToSlash(relPath)
-		live[fullPath] = true
+		live[name] = true
 
 		// Determine branch: from store entry or git (tracked repos)
 		var branch string
@@ -83,16 +93,18 @@ func ReconcileGlobalSkills(cfg *Config, store *install.MetadataStore) error {
 				existing.Branch = branch
 				changed = true
 			}
+			if existing.Group != group {
+				existing.Group = group
+				changed = true
+			}
 		} else {
 			entry := &install.MetadataEntry{
 				Source:  source,
 				Tracked: tracked,
 				Branch:  branch,
+				Group:   group,
 			}
-			if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
-				entry.Group = fullPath[:idx]
-			}
-			store.Set(fullPath, entry)
+			store.Set(name, entry)
 			changed = true
 		}
 

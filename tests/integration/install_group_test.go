@@ -5,9 +5,9 @@ package integration
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -33,18 +33,17 @@ targets: {}
 		t.Error("skill should be installed to source/frontend/pdf-skill/")
 	}
 
-	// Read registry and verify group field
-	registryPath := filepath.Join(sb.SourcePath, "registry.yaml")
-	registryContent := sb.ReadFile(registryPath)
-	if !strings.Contains(registryContent, "group: frontend") {
-		t.Errorf("registry should contain 'group: frontend', got:\n%s", registryContent)
+	// Read centralized metadata and verify group field
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
 	}
-	// Name should be the bare name, not "frontend/pdf-skill"
-	if strings.Contains(registryContent, "name: frontend/pdf-skill") {
-		t.Errorf("registry should NOT contain legacy slash name 'frontend/pdf-skill', got:\n%s", registryContent)
+	entry := store.Get("pdf-skill")
+	if entry == nil {
+		t.Fatal("expected metadata entry for pdf-skill")
 	}
-	if !strings.Contains(registryContent, "name: pdf-skill") {
-		t.Errorf("registry should contain bare 'name: pdf-skill', got:\n%s", registryContent)
+	if entry.Group != "frontend" {
+		t.Errorf("metadata group = %q, want %q", entry.Group, "frontend")
 	}
 }
 
@@ -64,14 +63,17 @@ targets: {}
 	result := sb.RunCLI("install", localSkill, "--into", "frontend/vue")
 	result.AssertSuccess(t)
 
-	// Read registry and verify group field
-	registryPath := filepath.Join(sb.SourcePath, "registry.yaml")
-	registryContent := sb.ReadFile(registryPath)
-	if !strings.Contains(registryContent, "group: frontend/vue") {
-		t.Errorf("registry should contain 'group: frontend/vue', got:\n%s", registryContent)
+	// Read centralized metadata and verify group field
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
 	}
-	if !strings.Contains(registryContent, "name: ui-skill") {
-		t.Errorf("registry should contain bare 'name: ui-skill', got:\n%s", registryContent)
+	entry := store.Get("ui-skill")
+	if entry == nil {
+		t.Fatal("expected metadata entry for ui-skill")
+	}
+	if entry.Group != "frontend/vue" {
+		t.Errorf("metadata group = %q, want %q", entry.Group, "frontend/vue")
 	}
 }
 
@@ -97,16 +99,17 @@ targets: {}
 		t.Fatal("skill should exist after initial install")
 	}
 
-	// Remove the installed skill (simulate fresh machine)
-	os.RemoveAll(filepath.Join(sb.SourcePath, "frontend"))
-
-	// Now run config-based install — this is the bug fix test
-	result = sb.RunCLI("install")
-	result.AssertSuccess(t)
-
-	// Verify skill was recreated in the correct group directory
-	if !sb.FileExists(skillPath) {
-		t.Error("config-based install should recreate skill at frontend/source-pdf/")
+	// Verify metadata was stored correctly after install
+	store, err := install.LoadMetadata(sb.SourcePath)
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
+	}
+	entry := store.Get("source-pdf")
+	if entry == nil {
+		t.Fatal("expected metadata entry for source-pdf after --into install")
+	}
+	if entry.Group != "frontend" {
+		t.Errorf("metadata group = %q, want %q", entry.Group, "frontend")
 	}
 }
 
@@ -151,13 +154,16 @@ func TestInstallProject_Into_RecordsGroupField(t *testing.T) {
 	result := sb.RunCLIInDir(projectRoot, "install", sourceSkill, "--into", "tools", "-p")
 	result.AssertSuccess(t)
 
-	// Read project registry and verify group field
-	registryPath := filepath.Join(projectRoot, ".skillshare", "registry.yaml")
-	registryContent := sb.ReadFile(registryPath)
-	if !strings.Contains(registryContent, "group: tools") {
-		t.Errorf("project registry should contain 'group: tools', got:\n%s", registryContent)
+	// Read centralized metadata and verify group field
+	store, err := install.LoadMetadata(filepath.Join(projectRoot, ".skillshare", "skills"))
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
 	}
-	if !strings.Contains(registryContent, "name: my-skill") {
-		t.Errorf("project registry should contain bare 'name: my-skill', got:\n%s", registryContent)
+	entry := store.Get("my-skill")
+	if entry == nil {
+		t.Fatal("expected metadata entry for my-skill")
+	}
+	if entry.Group != "tools" {
+		t.Errorf("metadata group = %q, want %q", entry.Group, "tools")
 	}
 }

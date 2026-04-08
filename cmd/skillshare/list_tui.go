@@ -69,16 +69,16 @@ type detailData struct {
 
 // listTUIModel is the bubbletea model for the interactive skill list.
 type listTUIModel struct {
-	list        list.Model
-	totalCount  int
+	list             list.Model
+	totalCount       int
 	modeLabel        string // "global" or "project"
 	sourcePath       string
 	agentsSourcePath string
 	targets          map[string]config.TargetConfig
-	quitting    bool
-	action      string // "audit", "update", "uninstall", or "" (normal quit)
-	termWidth   int
-	detailCache map[string]*detailData // key = RelPath; lazy-populated
+	quitting         bool
+	action           string // "audit", "update", "uninstall", or "" (normal quit)
+	termWidth        int
+	detailCache      map[string]*detailData // key = RelPath; lazy-populated
 
 	// Async loading — spinner shown until data arrives
 	loading     bool
@@ -140,9 +140,9 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	l.Styles.Title = tc.ListTitle
 	l.Styles.NoItems = l.Styles.NoItems.PaddingLeft(2) // align with title
 	l.SetShowStatusBar(false)                          // we render our own status with real total count
-	l.SetFilteringEnabled(false) // application-level filter replaces built-in
-	l.SetShowHelp(false)         // we render our own help
-	l.SetShowPagination(false)   // we render page info in our status line
+	l.SetFilteringEnabled(false)                       // application-level filter replaces built-in
+	l.SetShowHelp(false)                               // we render our own help
+	l.SetShowPagination(false)                         // we render page info in our status line
 
 	// Loading spinner
 	sp := spinner.New()
@@ -174,14 +174,14 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 		sourcePath:       sourcePath,
 		agentsSourcePath: agentsSourcePath,
 		targets:          targets,
-		activeTab:   initTab,
-		detailCache: make(map[string]*detailData),
-		loading:     loadFn != nil,
-		loadSpinner: sp,
-		loadFn:      loadFn,
-		allItems:    allItems,
-		matchCount:  len(allItems),
-		filterInput: fi,
+		activeTab:        initTab,
+		detailCache:      make(map[string]*detailData),
+		loading:          loadFn != nil,
+		loadSpinner:      sp,
+		loadFn:           loadFn,
+		allItems:         allItems,
+		matchCount:       len(allItems),
+		filterInput:      fi,
 	}
 	if loadFn == nil {
 		m.recomputeTabCounts()
