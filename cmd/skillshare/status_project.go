@@ -236,7 +236,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		}
 
 		// Target name header
-		fmt.Printf("  %s%s%s\n", ui.Bold, entry.Name, ui.Reset)
+		fmt.Printf("%s%s%s\n", ui.Bold, entry.Name, ui.Reset)
 
 		// Skills sub-item
 		sc := target.SkillsConfig()

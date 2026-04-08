@@ -383,7 +383,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 	driftTotal := 0
 	for name, target := range cfg.Targets {
 		// Target name header
-		fmt.Printf("  %s%s%s\n", ui.Bold, name, ui.Reset)
+		fmt.Printf("%s%s%s\n", ui.Bold, name, ui.Reset)
 
 		// Skills sub-item
 		sc := target.SkillsConfig()
@@ -441,7 +441,7 @@ func printTargetSubItem(kind, status, detail string) {
 	case "conflict", "broken":
 		statusColor = ui.Red
 	}
-	fmt.Printf("    %-8s %s%-12s%s %s\n", kind, statusColor, status, ui.Reset, ui.Dim+detail+ui.Reset)
+	fmt.Printf("  %-8s %s%-12s%s %s\n", kind, statusColor, status, ui.Reset, ui.Dim+detail+ui.Reset)
 }
 
 func getTargetMode(targetMode, globalMode string) string {
