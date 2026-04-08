@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"skillshare/internal/config"
+	"skillshare/internal/install"
 )
 
 func TestHandleBatchUninstall_ProjectMode_GitignorePath(t *testing.T) {
@@ -33,11 +33,8 @@ func TestHandleBatchUninstall_ProjectMode_GitignorePath(t *testing.T) {
 		"# BEGIN SKILLSHARE MANAGED - DO NOT EDIT\nskills/_team-skills/\n# END SKILLSHARE MANAGED\n",
 	), 0644)
 
-	s.registry = &config.Registry{
-		Skills: []config.SkillEntry{
-			{Name: "_team-skills", Tracked: true},
-		},
-	}
+	s.skillsStore = install.NewMetadataStore()
+	s.skillsStore.Set("_team-skills", &install.MetadataEntry{Tracked: true})
 
 	body := batchUninstallRequest{Names: []string{"_team-skills"}, Force: true}
 	b, _ := json.Marshal(body)
@@ -70,11 +67,8 @@ func TestHandleBatchUninstall_GlobalMode_GitignorePath(t *testing.T) {
 		"# BEGIN SKILLSHARE MANAGED - DO NOT EDIT\n_team-skills/\n# END SKILLSHARE MANAGED\n",
 	), 0644)
 
-	s.registry = &config.Registry{
-		Skills: []config.SkillEntry{
-			{Name: "_team-skills", Tracked: true},
-		},
-	}
+	s.skillsStore = install.NewMetadataStore()
+	s.skillsStore.Set("_team-skills", &install.MetadataEntry{Tracked: true})
 
 	body := batchUninstallRequest{Names: []string{"_team-skills"}, Force: true}
 	b, _ := json.Marshal(body)

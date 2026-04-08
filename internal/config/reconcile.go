@@ -12,35 +12,20 @@ import (
 
 // ReconcileGlobalSkills scans the global source directory for remotely-installed
 // skills (those with install metadata or tracked repos) and ensures they are
-// listed in Config.Skills[]. This is the global-mode counterpart of
+// present in the MetadataStore. This is the global-mode counterpart of
 // ReconcileProjectSkills.
-func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
+func ReconcileGlobalSkills(cfg *Config, store *install.MetadataStore) error {
 	sourcePath := cfg.Source
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return nil // no skills dir yet
 	}
 
 	changed := false
-	index := map[string]int{}
-	for i, skill := range reg.Skills {
-		index[skill.FullName()] = i
-	}
-
-	// Migrate legacy entries: name "frontend/pdf" → group "frontend", name "pdf"
-	for i := range reg.Skills {
-		s := &reg.Skills[i]
-		if s.Group == "" && strings.Contains(s.Name, "/") {
-			group, bare := s.EffectiveParts()
-			s.Group = group
-			s.Name = bare
-			changed = true
-		}
-	}
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
 	live := map[string]bool{} // tracks skills actually found on disk
-	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
+	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
 			return nil
 		}
 		if path == walkRoot {
@@ -64,9 +49,9 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 		var source string
 		tracked := isGitRepo(path)
 
-		meta, metaErr := install.ReadMeta(path)
-		if metaErr == nil && meta != nil && meta.Source != "" {
-			source = meta.Source
+		existing := store.Get(filepath.ToSlash(relPath))
+		if existing != nil && existing.Source != "" {
+			source = existing.Source
 		} else if tracked {
 			source = gitRemoteOrigin(path)
 		}
@@ -77,48 +62,44 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 		fullPath := filepath.ToSlash(relPath)
 		live[fullPath] = true
 
-		// Determine branch: from metadata (regular skills) or git (tracked repos)
+		// Determine branch: from store entry or git (tracked repos)
 		var branch string
-		if meta != nil {
-			branch = meta.Branch
+		if existing != nil && existing.Branch != "" {
+			branch = existing.Branch
 		} else if tracked {
 			branch = gitCurrentBranch(path)
 		}
 
-		if existingIdx, ok := index[fullPath]; ok {
-			if reg.Skills[existingIdx].Source != source {
-				reg.Skills[existingIdx].Source = source
+		if existing != nil {
+			if existing.Source != source {
+				existing.Source = source
 				changed = true
 			}
-			if reg.Skills[existingIdx].Tracked != tracked {
-				reg.Skills[existingIdx].Tracked = tracked
+			if existing.Tracked != tracked {
+				existing.Tracked = tracked
 				changed = true
 			}
-			if reg.Skills[existingIdx].Branch != branch {
-				reg.Skills[existingIdx].Branch = branch
+			if existing.Branch != branch {
+				existing.Branch = branch
 				changed = true
 			}
 		} else {
-			entry := SkillEntry{
+			entry := &install.MetadataEntry{
 				Source:  source,
 				Tracked: tracked,
 				Branch:  branch,
 			}
 			if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
 				entry.Group = fullPath[:idx]
-				entry.Name = fullPath[idx+1:]
-			} else {
-				entry.Name = fullPath
 			}
-			reg.Skills = append(reg.Skills, entry)
-			index[fullPath] = len(reg.Skills) - 1
+			store.Set(fullPath, entry)
 			changed = true
 		}
 
 		if tracked {
 			return filepath.SkipDir
 		}
-		if meta != nil && meta.Source != "" {
+		if existing != nil && existing.Source != "" {
 			return filepath.SkipDir
 		}
 
@@ -128,17 +109,16 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 		return fmt.Errorf("failed to scan global skills: %w", err)
 	}
 
-	// Prune stale entries: skills in registry but no longer on disk
-	var pruneChanged bool
-	reg.Skills, pruneChanged = PruneStaleSkills(reg.Skills, live, false)
-	changed = changed || pruneChanged
+	// Prune stale entries: skills in store but no longer on disk
+	for _, name := range store.List() {
+		if !live[name] {
+			store.Remove(name)
+			changed = true
+		}
+	}
 
 	if changed {
-		regDir := cfg.RegistryDir
-		if regDir == "" {
-			regDir = SourceRoot(cfg.Source)
-		}
-		if err := reg.Save(regDir); err != nil {
+		if err := store.Save(sourcePath); err != nil {
 			return err
 		}
 	}

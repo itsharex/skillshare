@@ -246,17 +246,17 @@ func parseOptsFromProjectConfig(cfg *config.ProjectConfig) install.ParseOptions 
 
 // resolveSkillFromName resolves a skill name to source using metadata
 func resolveSkillFromName(skillName string, cfg *config.Config) (*install.Source, error) {
-	skillPath := filepath.Join(cfg.Source, skillName)
-
-	meta, err := install.ReadMeta(skillPath)
+	store, err := install.LoadMetadataWithMigration(cfg.Source, "")
 	if err != nil {
 		return nil, fmt.Errorf("skill '%s' not found or has no metadata", skillName)
 	}
-	if meta == nil {
+
+	entry := store.Get(skillName)
+	if entry == nil || entry.Source == "" {
 		return nil, fmt.Errorf("skill '%s' has no metadata, cannot update", skillName)
 	}
 
-	source, err := install.ParseSourceWithOptions(meta.Source, parseOptsFromConfig(cfg))
+	source, err := install.ParseSourceWithOptions(entry.Source, parseOptsFromConfig(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("invalid source in metadata: %w", err)
 	}
@@ -438,10 +438,10 @@ func cmdInstall(args []string) error {
 			summary.Source = parsed.sourceArg
 		}
 		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-			reg, regErr := config.LoadRegistry(cfg.RegistryDir)
-			if regErr != nil {
-				ui.Warning("Failed to load registry: %v", regErr)
-			} else if rErr := config.ReconcileGlobalSkills(cfg, reg); rErr != nil {
+			store, storeErr := install.LoadMetadataWithMigration(cfg.Source, "")
+			if storeErr != nil {
+				ui.Warning("Failed to load metadata: %v", storeErr)
+			} else if rErr := config.ReconcileGlobalSkills(cfg, store); rErr != nil {
 				ui.Warning("Failed to reconcile global skills config: %v", rErr)
 			}
 		}
@@ -460,10 +460,10 @@ func cmdInstall(args []string) error {
 		summary.Source = parsed.sourceArg
 	}
 	if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-		reg, regErr := config.LoadRegistry(cfg.RegistryDir)
-		if regErr != nil {
-			ui.Warning("Failed to load registry: %v", regErr)
-		} else if rErr := config.ReconcileGlobalSkills(cfg, reg); rErr != nil {
+		store, storeErr := install.LoadMetadataWithMigration(cfg.Source, "")
+		if storeErr != nil {
+			ui.Warning("Failed to load metadata: %v", storeErr)
+		} else if rErr := config.ReconcileGlobalSkills(cfg, store); rErr != nil {
 			ui.Warning("Failed to reconcile global skills config: %v", rErr)
 		}
 	}

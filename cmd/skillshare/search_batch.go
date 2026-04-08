@@ -565,11 +565,11 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 			_ = reconcileProjectRemoteSkills(runtime)
 		}
 	} else {
-		reg, _ := config.LoadRegistry(cfg.RegistryDir)
-		if reg == nil {
-			reg = &config.Registry{}
+		store, _ := install.LoadMetadataWithMigration(cfg.Source, "")
+		if store == nil {
+			store = install.NewMetadataStore()
 		}
-		_ = config.ReconcileGlobalSkills(cfg, reg)
+		_ = config.ReconcileGlobalSkills(cfg, store)
 	}
 
 	renderBatchSearchInstallSummary(results, mode, time.Since(batchStart))

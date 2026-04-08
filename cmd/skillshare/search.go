@@ -578,11 +578,11 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	logSummary.InstalledSkills = []string{result.Name}
 
 	// Reconcile global config with installed skills
-	reg, _ := config.LoadRegistry(cfg.RegistryDir)
-	if reg == nil {
-		reg = &config.Registry{}
+	store, _ := install.LoadMetadataWithMigration(cfg.Source, "")
+	if store == nil {
+		store = install.NewMetadataStore()
 	}
-	if rErr := config.ReconcileGlobalSkills(cfg, reg); rErr != nil {
+	if rErr := config.ReconcileGlobalSkills(cfg, store); rErr != nil {
 		ui.Warning("Failed to reconcile global skills config: %v", rErr)
 	}
 

@@ -20,12 +20,13 @@ import (
 
 // Server holds the HTTP server state
 type Server struct {
-	cfg      *config.Config
-	registry *config.Registry
-	addr     string
-	mux      *http.ServeMux
-	handler  http.Handler
-	mu       sync.RWMutex // protects config: Lock for writes/reloads, RLock for reads
+	cfg         *config.Config
+	skillsStore *install.MetadataStore
+	agentsStore *install.MetadataStore
+	addr        string
+	mux         *http.ServeMux
+	handler     http.Handler
+	mu          sync.RWMutex // protects config: Lock for writes/reloads, RLock for reads
 
 	startTime time.Time // for uptime reporting in health check
 
@@ -83,17 +84,22 @@ func (s *Server) wrapBasePath() {
 // New creates a new Server for global mode.
 // uiDistDir, when non-empty, serves UI from disk instead of the embedded SPA.
 func New(cfg *config.Config, addr, basePath, uiDistDir string) *Server {
-	reg, _ := config.LoadRegistry(cfg.RegistryDir)
-	if reg == nil {
-		reg = &config.Registry{}
+	skillsStore, _ := install.LoadMetadataWithMigration(cfg.Source, "")
+	if skillsStore == nil {
+		skillsStore = install.NewMetadataStore()
+	}
+	agentsStore, _ := install.LoadMetadataWithMigration(cfg.EffectiveAgentsSource(), "agent")
+	if agentsStore == nil {
+		agentsStore = install.NewMetadataStore()
 	}
 	s := &Server{
-		cfg:       cfg,
-		registry:  reg,
-		addr:      addr,
-		mux:       http.NewServeMux(),
-		basePath:  NormalizeBasePath(basePath),
-		uiDistDir: uiDistDir,
+		cfg:         cfg,
+		skillsStore: skillsStore,
+		agentsStore: agentsStore,
+		addr:        addr,
+		mux:         http.NewServeMux(),
+		basePath:    NormalizeBasePath(basePath),
+		uiDistDir:   uiDistDir,
 	}
 	s.registerRoutes()
 	s.handler = s.withConfigAutoReload(s.mux)
@@ -104,13 +110,20 @@ func New(cfg *config.Config, addr, basePath, uiDistDir string) *Server {
 // NewProject creates a new Server for project mode.
 // uiDistDir, when non-empty, serves UI from disk instead of the embedded SPA.
 func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoot, addr, basePath, uiDistDir string) *Server {
-	reg, _ := config.LoadRegistry(filepath.Join(projectRoot, ".skillshare"))
-	if reg == nil {
-		reg = &config.Registry{}
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	agentsDir := filepath.Join(projectRoot, ".skillshare", "agents")
+	skillsStore, _ := install.LoadMetadataWithMigration(skillsDir, "")
+	if skillsStore == nil {
+		skillsStore = install.NewMetadataStore()
+	}
+	agentsStore, _ := install.LoadMetadataWithMigration(agentsDir, "agent")
+	if agentsStore == nil {
+		agentsStore = install.NewMetadataStore()
 	}
 	s := &Server{
 		cfg:         cfg,
-		registry:    reg,
+		skillsStore: skillsStore,
+		agentsStore: agentsStore,
 		addr:        addr,
 		mux:         http.NewServeMux(),
 		basePath:    NormalizeBasePath(basePath),
@@ -208,8 +221,13 @@ func (s *Server) reloadConfig() error {
 			return err
 		}
 		s.cfg.Targets = targets
-		if reg, err := config.LoadRegistry(filepath.Join(s.projectRoot, ".skillshare")); err == nil {
-			s.registry = reg
+		skillsDir := filepath.Join(s.projectRoot, ".skillshare", "skills")
+		agentsDir := filepath.Join(s.projectRoot, ".skillshare", "agents")
+		if st, err := install.LoadMetadata(skillsDir); err == nil {
+			s.skillsStore = st
+		}
+		if st, err := install.LoadMetadata(agentsDir); err == nil {
+			s.agentsStore = st
 		}
 		return nil
 	}
@@ -218,8 +236,11 @@ func (s *Server) reloadConfig() error {
 		return err
 	}
 	s.cfg = newCfg
-	if reg, err := config.LoadRegistry(s.cfg.RegistryDir); err == nil {
-		s.registry = reg
+	if st, err := install.LoadMetadata(newCfg.Source); err == nil {
+		s.skillsStore = st
+	}
+	if st, err := install.LoadMetadata(newCfg.EffectiveAgentsSource()); err == nil {
+		s.agentsStore = st
 	}
 	return nil
 }

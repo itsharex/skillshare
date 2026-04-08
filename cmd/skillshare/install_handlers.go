@@ -915,14 +915,14 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 		AuditVerbose: opts.AuditVerbose,
 	}
 
-	reg, regErr := config.LoadRegistry(cfg.RegistryDir)
-	if regErr != nil {
-		return summary, fmt.Errorf("failed to load registry: %w", regErr)
+	store, storeErr := install.LoadMetadataWithMigration(cfg.Source, "")
+	if storeErr != nil {
+		return summary, fmt.Errorf("failed to load metadata: %w", storeErr)
 	}
-	ctx := &globalInstallContext{cfg: cfg, reg: reg}
+	ctx := &globalInstallContext{cfg: cfg, store: store}
 
 	if len(ctx.ConfigSkills()) == 0 {
-		ui.Info("No remote skills defined in registry")
+		ui.Info("No remote skills defined in metadata")
 		ui.Info("Install a skill first: skillshare install <source>")
 		return summary, nil
 	}

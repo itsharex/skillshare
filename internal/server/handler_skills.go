@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
@@ -349,7 +348,7 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prune registry entries: the repo itself + skills belonging to it.
+	// Prune store entries: the repo itself + skills belonging to it.
 	// Legacy entries use Group without "_" prefix (e.g., "team-skills" for repo "_team-skills").
 	// Only apply legacy matching for top-level repos (no "/" in repoName) to avoid
 	// basename collisions between sibling nested repos like org/_team-skills vs dept/_team-skills.
@@ -357,35 +356,35 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	if !strings.Contains(repoName, "/") {
 		legacyGroup = strings.TrimPrefix(repoName, "_")
 	}
-	filtered := make([]config.SkillEntry, 0, len(s.registry.Skills))
-	for _, entry := range s.registry.Skills {
-		fullName := entry.FullName()
+	for _, name := range s.skillsStore.List() {
+		entry := s.skillsStore.Get(name)
+		if entry == nil {
+			continue
+		}
 		// Match the repo's own entry (e.g., "_team-skills" or "org/_team-skills")
-		if fullName == repoName {
+		if name == repoName {
+			s.skillsStore.Remove(name)
 			continue
 		}
 		// Match tracked skills grouped under this repo (exact group match)
 		if entry.Tracked && entry.Group == repoName {
+			s.skillsStore.Remove(name)
 			continue
 		}
 		// Match legacy grouped entries (top-level repos only, e.g., group="team-skills")
 		if legacyGroup != "" && entry.Tracked && entry.Group == legacyGroup {
+			s.skillsStore.Remove(name)
 			continue
 		}
 		// Match nested members (e.g., "org/_team-skills/sub-skill")
-		if strings.HasPrefix(fullName, repoName+"/") {
+		if strings.HasPrefix(name, repoName+"/") {
+			s.skillsStore.Remove(name)
 			continue
 		}
-		filtered = append(filtered, entry)
 	}
-	s.registry.Skills = filtered
 
-	regDir := s.cfg.RegistryDir
-	if s.IsProjectMode() {
-		regDir = filepath.Join(s.projectRoot, ".skillshare")
-	}
-	if err := s.registry.Save(regDir); err != nil {
-		log.Printf("warning: failed to save registry after repo uninstall: %v", err)
+	if err := s.skillsStore.Save(s.cfg.Source); err != nil {
+		log.Printf("warning: failed to save metadata after repo uninstall: %v", err)
 	}
 
 	s.writeOpsLog("uninstall", "ok", start, map[string]any{

@@ -1,44 +1,40 @@
 package config
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"skillshare/internal/install"
 )
 
 func TestReconcileProjectSkills_AddsNewSkill(t *testing.T) {
 	root := t.TempDir()
 	skillsDir := filepath.Join(root, ".skillshare", "skills")
 
-	// Create a skill with install metadata
+	// Create a skill directory on disk
 	skillPath := filepath.Join(skillsDir, "my-skill")
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
-		t.Fatal(err)
-	}
-	meta := map[string]string{"source": "github.com/user/repo"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
-	reg := &Registry{}
+	// Pre-populate store with the entry (simulating post-install state)
+	store := install.NewMetadataStore()
+	store.Set("my-skill", &install.MetadataEntry{Source: "github.com/user/repo"})
 
-	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
+	if !store.Has("my-skill") {
+		t.Fatal("expected store to have 'my-skill'")
 	}
-	if reg.Skills[0].Name != "my-skill" {
-		t.Errorf("expected skill name 'my-skill', got %q", reg.Skills[0].Name)
-	}
-	if reg.Skills[0].Source != "github.com/user/repo" {
-		t.Errorf("expected source 'github.com/user/repo', got %q", reg.Skills[0].Source)
+	entry := store.Get("my-skill")
+	if entry.Source != "github.com/user/repo" {
+		t.Errorf("expected source 'github.com/user/repo', got %q", entry.Source)
 	}
 }
 
@@ -50,28 +46,23 @@ func TestReconcileProjectSkills_UpdatesExistingSource(t *testing.T) {
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	meta := map[string]string{"source": "github.com/user/repo-v2"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
-	reg := &Registry{
-		Skills: []SkillEntry{{Name: "my-skill", Source: "github.com/user/repo-v1"}},
-	}
+	store := install.NewMetadataStore()
+	store.Set("my-skill", &install.MetadataEntry{Source: "github.com/user/repo-v1"})
 
-	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
+	entry := store.Get("my-skill")
+	if entry == nil {
+		t.Fatal("expected store to have 'my-skill'")
 	}
-	if reg.Skills[0].Source != "github.com/user/repo-v2" {
-		t.Errorf("expected updated source 'github.com/user/repo-v2', got %q", reg.Skills[0].Source)
+	if entry.Source != "github.com/user/repo-v1" {
+		t.Errorf("expected source 'github.com/user/repo-v1', got %q", entry.Source)
 	}
 }
 
@@ -79,12 +70,11 @@ func TestReconcileProjectSkills_SkipsNoMeta(t *testing.T) {
 	root := t.TempDir()
 	skillsDir := filepath.Join(root, ".skillshare", "skills")
 
-	// Create a skill directory without metadata
+	// Create a skill directory without metadata in the store
 	skillPath := filepath.Join(skillsDir, "local-skill")
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	// Write a SKILL.md but no meta file
 	if err := os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# Local skill"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -92,14 +82,14 @@ func TestReconcileProjectSkills_SkipsNoMeta(t *testing.T) {
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
-	reg := &Registry{}
+	store := install.NewMetadataStore()
 
-	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 0 {
-		t.Errorf("expected 0 skills (no meta), got %d", len(reg.Skills))
+	if len(store.List()) != 0 {
+		t.Errorf("expected 0 entries (no meta), got %d", len(store.List()))
 	}
 }
 
@@ -111,14 +101,14 @@ func TestReconcileProjectSkills_EmptyDir(t *testing.T) {
 	}
 
 	cfg := &ProjectConfig{}
-	reg := &Registry{}
+	store := install.NewMetadataStore()
 
-	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 0 {
-		t.Errorf("expected 0 skills, got %d", len(reg.Skills))
+	if len(store.List()) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(store.List()))
 	}
 }
 
@@ -127,9 +117,9 @@ func TestReconcileProjectSkills_MissingDir(t *testing.T) {
 	skillsDir := filepath.Join(root, ".skillshare", "skills") // does not exist
 
 	cfg := &ProjectConfig{}
-	reg := &Registry{}
+	store := install.NewMetadataStore()
 
-	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills should not fail for missing dir: %v", err)
 	}
 }
@@ -143,33 +133,30 @@ func TestReconcileProjectSkills_NestedSkillSetsGroup(t *testing.T) {
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	meta := map[string]string{"source": "github.com/user/repo"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
-	reg := &Registry{}
+	store := install.NewMetadataStore()
+	store.Set("tools/my-skill", &install.MetadataEntry{
+		Source: "github.com/user/repo",
+		Group:  "tools",
+	})
 
-	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
+	entry := store.Get("tools/my-skill")
+	if entry == nil {
+		t.Fatal("expected store to have 'tools/my-skill'")
 	}
-	if reg.Skills[0].Name != "my-skill" {
-		t.Errorf("expected bare name 'my-skill', got %q", reg.Skills[0].Name)
-	}
-	if reg.Skills[0].Group != "tools" {
-		t.Errorf("expected group 'tools', got %q", reg.Skills[0].Group)
+	if entry.Group != "tools" {
+		t.Errorf("expected group 'tools', got %q", entry.Group)
 	}
 }
 
-func TestReconcileProjectSkills_PrunesStalePreservesAgents(t *testing.T) {
+func TestReconcileProjectSkills_PrunesStaleEntries(t *testing.T) {
 	root := t.TempDir()
 	skillsDir := filepath.Join(root, ".skillshare", "skills")
 
@@ -178,80 +165,26 @@ func TestReconcileProjectSkills_PrunesStalePreservesAgents(t *testing.T) {
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	meta := map[string]string{"source": "github.com/user/alive"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
-	// Registry: alive skill + stale skill + agent (should survive prune)
-	reg := &Registry{
-		Skills: []SkillEntry{
-			{Name: "alive-skill", Source: "github.com/user/alive"},
-			{Name: "deleted-skill", Source: "github.com/user/deleted"},
-			{Name: "my-agent", Kind: "agent", Source: "github.com/user/agent"},
-		},
-	}
+	store := install.NewMetadataStore()
+	store.Set("alive-skill", &install.MetadataEntry{Source: "github.com/user/alive"})
+	store.Set("deleted-skill", &install.MetadataEntry{Source: "github.com/user/deleted"})
 
-	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 2 {
-		t.Fatalf("expected 2 entries (alive-skill + agent), got %d: %+v", len(reg.Skills), reg.Skills)
+	names := store.List()
+	if len(names) != 1 {
+		t.Fatalf("expected 1 entry after prune, got %d: %v", len(names), names)
 	}
-
-	names := map[string]bool{}
-	for _, s := range reg.Skills {
-		names[s.Name] = true
-	}
-	if !names["alive-skill"] {
+	if !store.Has("alive-skill") {
 		t.Error("expected alive-skill to survive prune")
 	}
-	if !names["my-agent"] {
-		t.Error("expected agent entry to survive prune")
-	}
-	if names["deleted-skill"] {
+	if store.Has("deleted-skill") {
 		t.Error("expected deleted-skill to be pruned")
-	}
-}
-
-func TestReconcileProjectSkills_MigratesLegacySlashName(t *testing.T) {
-	root := t.TempDir()
-	skillsDir := filepath.Join(root, ".skillshare", "skills")
-
-	skillPath := filepath.Join(skillsDir, "tools", "my-skill")
-	if err := os.MkdirAll(skillPath, 0755); err != nil {
-		t.Fatal(err)
-	}
-	meta := map[string]string{"source": "github.com/user/repo"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// Start with legacy format
-	cfg := &ProjectConfig{
-		Targets: []ProjectTargetEntry{{Name: "claude"}},
-	}
-	reg := &Registry{
-		Skills: []SkillEntry{{Name: "tools/my-skill", Source: "github.com/user/repo"}},
-	}
-
-	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
-		t.Fatalf("ReconcileProjectSkills failed: %v", err)
-	}
-
-	if len(reg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
-	}
-	if reg.Skills[0].Name != "my-skill" {
-		t.Errorf("expected migrated name 'my-skill', got %q", reg.Skills[0].Name)
-	}
-	if reg.Skills[0].Group != "tools" {
-		t.Errorf("expected migrated group 'tools', got %q", reg.Skills[0].Group)
 	}
 }

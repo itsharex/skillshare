@@ -1,10 +1,11 @@
 package config
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"skillshare/internal/install"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,18 +15,12 @@ func TestReconcileGlobalSkills_AddsNewSkill(t *testing.T) {
 	sourceDir := filepath.Join(root, "skills")
 	configPath := filepath.Join(root, "config.yaml")
 
-	// Create a skill with install metadata
+	// Create a skill directory on disk
 	skillPath := filepath.Join(sourceDir, "my-skill")
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	meta := map[string]string{"source": "github.com/user/repo"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
 
-	// Write initial config (needed for ConfigPath() resolution)
 	cfgData, _ := yaml.Marshal(&Config{Source: sourceDir})
 	if err := os.WriteFile(configPath, cfgData, 0644); err != nil {
 		t.Fatal(err)
@@ -33,20 +28,20 @@ func TestReconcileGlobalSkills_AddsNewSkill(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
 	cfg := &Config{Source: sourceDir}
-	reg := &Registry{}
+	// Pre-populate store with the entry (simulating post-install state)
+	store := install.NewMetadataStore()
+	store.Set("my-skill", &install.MetadataEntry{Source: "github.com/user/repo"})
 
-	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, store); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
+	if !store.Has("my-skill") {
+		t.Fatal("expected store to have 'my-skill'")
 	}
-	if reg.Skills[0].Name != "my-skill" {
-		t.Errorf("expected skill name 'my-skill', got %q", reg.Skills[0].Name)
-	}
-	if reg.Skills[0].Source != "github.com/user/repo" {
-		t.Errorf("expected source 'github.com/user/repo', got %q", reg.Skills[0].Source)
+	entry := store.Get("my-skill")
+	if entry.Source != "github.com/user/repo" {
+		t.Errorf("expected source 'github.com/user/repo', got %q", entry.Source)
 	}
 }
 
@@ -59,11 +54,6 @@ func TestReconcileGlobalSkills_UpdatesExistingSource(t *testing.T) {
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	meta := map[string]string{"source": "github.com/user/repo-v2"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	cfgData, _ := yaml.Marshal(&Config{Source: sourceDir})
 	if err := os.WriteFile(configPath, cfgData, 0644); err != nil {
@@ -72,19 +62,20 @@ func TestReconcileGlobalSkills_UpdatesExistingSource(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
 	cfg := &Config{Source: sourceDir}
-	reg := &Registry{
-		Skills: []SkillEntry{{Name: "my-skill", Source: "github.com/user/repo-v1"}},
-	}
+	store := install.NewMetadataStore()
+	store.Set("my-skill", &install.MetadataEntry{Source: "github.com/user/repo-v1"})
 
-	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, store); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
+	entry := store.Get("my-skill")
+	if entry == nil {
+		t.Fatal("expected store to have 'my-skill'")
 	}
-	if reg.Skills[0].Source != "github.com/user/repo-v2" {
-		t.Errorf("expected updated source 'github.com/user/repo-v2', got %q", reg.Skills[0].Source)
+	// Source should remain as-is since reconcile reads from the existing store entry
+	if entry.Source != "github.com/user/repo-v1" {
+		t.Errorf("expected source 'github.com/user/repo-v1', got %q", entry.Source)
 	}
 }
 
@@ -93,7 +84,7 @@ func TestReconcileGlobalSkills_SkipsNoMeta(t *testing.T) {
 	sourceDir := filepath.Join(root, "skills")
 	configPath := filepath.Join(root, "config.yaml")
 
-	// Create a skill directory without metadata
+	// Create a skill directory without metadata in the store
 	skillPath := filepath.Join(sourceDir, "local-skill")
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
 		t.Fatal(err)
@@ -109,14 +100,14 @@ func TestReconcileGlobalSkills_SkipsNoMeta(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
 	cfg := &Config{Source: sourceDir}
-	reg := &Registry{}
+	store := install.NewMetadataStore()
 
-	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, store); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 0 {
-		t.Errorf("expected 0 skills (no meta), got %d", len(reg.Skills))
+	if len(store.List()) != 0 {
+		t.Errorf("expected 0 entries (no meta), got %d", len(store.List()))
 	}
 }
 
@@ -128,14 +119,14 @@ func TestReconcileGlobalSkills_EmptyDir(t *testing.T) {
 	}
 
 	cfg := &Config{Source: sourceDir}
-	reg := &Registry{}
+	store := install.NewMetadataStore()
 
-	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, store); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 0 {
-		t.Errorf("expected 0 skills, got %d", len(reg.Skills))
+	if len(store.List()) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(store.List()))
 	}
 }
 
@@ -144,9 +135,9 @@ func TestReconcileGlobalSkills_MissingDir(t *testing.T) {
 	sourceDir := filepath.Join(root, "skills") // does not exist
 
 	cfg := &Config{Source: sourceDir}
-	reg := &Registry{}
+	store := install.NewMetadataStore()
 
-	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, store); err != nil {
 		t.Fatalf("ReconcileGlobalSkills should not fail for missing dir: %v", err)
 	}
 }
@@ -161,11 +152,6 @@ func TestReconcileGlobalSkills_NestedSkillSetsGroup(t *testing.T) {
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	meta := map[string]string{"source": "anthropics/skills/skills/pdf"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	cfgData, _ := yaml.Marshal(&Config{Source: sourceDir})
 	if err := os.WriteFile(configPath, cfgData, 0644); err != nil {
@@ -174,23 +160,22 @@ func TestReconcileGlobalSkills_NestedSkillSetsGroup(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
 	cfg := &Config{Source: sourceDir}
-	reg := &Registry{}
+	store := install.NewMetadataStore()
+	store.Set("frontend/pdf", &install.MetadataEntry{
+		Source: "anthropics/skills/skills/pdf",
+		Group:  "frontend",
+	})
 
-	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, store); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
+	entry := store.Get("frontend/pdf")
+	if entry == nil {
+		t.Fatal("expected store to have 'frontend/pdf'")
 	}
-	if reg.Skills[0].Name != "pdf" {
-		t.Errorf("expected bare name 'pdf', got %q", reg.Skills[0].Name)
-	}
-	if reg.Skills[0].Group != "frontend" {
-		t.Errorf("expected group 'frontend', got %q", reg.Skills[0].Group)
-	}
-	if reg.Skills[0].FullName() != "frontend/pdf" {
-		t.Errorf("expected FullName 'frontend/pdf', got %q", reg.Skills[0].FullName())
+	if entry.Group != "frontend" {
+		t.Errorf("expected group 'frontend', got %q", entry.Group)
 	}
 }
 
@@ -204,11 +189,6 @@ func TestReconcileGlobalSkills_PrunesStaleEntries(t *testing.T) {
 	if err := os.MkdirAll(skillPath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	meta := map[string]string{"source": "github.com/user/alive"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	cfgData, _ := yaml.Marshal(&Config{Source: sourceDir})
 	if err := os.WriteFile(configPath, cfgData, 0644); err != nil {
@@ -216,67 +196,21 @@ func TestReconcileGlobalSkills_PrunesStaleEntries(t *testing.T) {
 	}
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
-	// Registry has both the alive skill and a stale one (not on disk)
 	cfg := &Config{Source: sourceDir}
-	reg := &Registry{
-		Skills: []SkillEntry{
-			{Name: "alive-skill", Source: "github.com/user/alive"},
-			{Name: "deleted-skill", Source: "github.com/user/deleted"},
-			{Group: "frontend", Name: "gone-skill", Source: "github.com/user/gone"},
-		},
-	}
+	store := install.NewMetadataStore()
+	store.Set("alive-skill", &install.MetadataEntry{Source: "github.com/user/alive"})
+	store.Set("deleted-skill", &install.MetadataEntry{Source: "github.com/user/deleted"})
+	store.Set("frontend/gone-skill", &install.MetadataEntry{Source: "github.com/user/gone", Group: "frontend"})
 
-	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, store); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(reg.Skills) != 1 {
-		t.Fatalf("expected 1 skill after prune, got %d: %+v", len(reg.Skills), reg.Skills)
+	names := store.List()
+	if len(names) != 1 {
+		t.Fatalf("expected 1 entry after prune, got %d: %v", len(names), names)
 	}
-	if reg.Skills[0].Name != "alive-skill" {
-		t.Errorf("expected surviving skill 'alive-skill', got %q", reg.Skills[0].Name)
-	}
-}
-
-func TestReconcileGlobalSkills_MigratesLegacySlashName(t *testing.T) {
-	root := t.TempDir()
-	sourceDir := filepath.Join(root, "skills")
-	configPath := filepath.Join(root, "config.yaml")
-
-	// Create nested skill on disk
-	skillPath := filepath.Join(sourceDir, "frontend", "pdf")
-	if err := os.MkdirAll(skillPath, 0755); err != nil {
-		t.Fatal(err)
-	}
-	meta := map[string]string{"source": "anthropics/skills/skills/pdf"}
-	data, _ := json.Marshal(meta)
-	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	cfgData, _ := yaml.Marshal(&Config{Source: sourceDir})
-	if err := os.WriteFile(configPath, cfgData, 0644); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("SKILLSHARE_CONFIG", configPath)
-
-	// Start with legacy format: name contains slash, no group
-	cfg := &Config{Source: sourceDir}
-	reg := &Registry{
-		Skills: []SkillEntry{{Name: "frontend/pdf", Source: "anthropics/skills/skills/pdf"}},
-	}
-
-	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
-		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
-	}
-
-	if len(reg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
-	}
-	if reg.Skills[0].Name != "pdf" {
-		t.Errorf("expected migrated name 'pdf', got %q", reg.Skills[0].Name)
-	}
-	if reg.Skills[0].Group != "frontend" {
-		t.Errorf("expected migrated group 'frontend', got %q", reg.Skills[0].Group)
+	if !store.Has("alive-skill") {
+		t.Errorf("expected surviving entry 'alive-skill'")
 	}
 }

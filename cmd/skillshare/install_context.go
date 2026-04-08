@@ -13,18 +13,22 @@ var (
 	_ install.InstallContext = (*projectInstallContext)(nil)
 )
 
-// toSkillEntryDTOs converts config.SkillEntry (or its alias ProjectSkill)
-// to install.SkillEntryDTO to avoid circular imports between install and config.
-func toSkillEntryDTOs(skills []config.SkillEntry) []install.SkillEntryDTO {
-	dtos := make([]install.SkillEntryDTO, len(skills))
-	for i, s := range skills {
-		dtos[i] = install.SkillEntryDTO{
-			Name:    s.Name,
-			Source:  s.Source,
-			Tracked: s.Tracked,
-			Group:   s.Group,
-			Branch:  s.Branch,
+// storeToSkillEntryDTOs converts MetadataStore entries to []install.SkillEntryDTO.
+func storeToSkillEntryDTOs(store *install.MetadataStore) []install.SkillEntryDTO {
+	names := store.List() // sorted
+	dtos := make([]install.SkillEntryDTO, 0, len(names))
+	for _, name := range names {
+		entry := store.Get(name)
+		if entry == nil {
+			continue
 		}
+		dtos = append(dtos, install.SkillEntryDTO{
+			Name:    name,
+			Source:  entry.Source,
+			Tracked: entry.Tracked,
+			Group:   entry.Group,
+			Branch:  entry.Branch,
+		})
 	}
 	return dtos
 }
@@ -35,16 +39,16 @@ func toSkillEntryDTOs(skills []config.SkillEntry) []install.SkillEntryDTO {
 
 // globalInstallContext implements install.InstallContext for global mode.
 type globalInstallContext struct {
-	cfg *config.Config
-	reg *config.Registry
+	cfg   *config.Config
+	store *install.MetadataStore
 }
 
 func (g *globalInstallContext) SourcePath() string { return g.cfg.Source }
 func (g *globalInstallContext) ConfigSkills() []install.SkillEntryDTO {
-	return toSkillEntryDTOs(g.reg.Skills)
+	return storeToSkillEntryDTOs(g.store)
 }
 func (g *globalInstallContext) Reconcile() error {
-	return config.ReconcileGlobalSkills(g.cfg, g.reg)
+	return config.ReconcileGlobalSkills(g.cfg, g.store)
 }
 func (g *globalInstallContext) PostInstallSkill(string) error { return nil }
 func (g *globalInstallContext) Mode() string                  { return "global" }
@@ -61,7 +65,7 @@ type projectInstallContext struct {
 
 func (p *projectInstallContext) SourcePath() string { return p.runtime.sourcePath }
 func (p *projectInstallContext) ConfigSkills() []install.SkillEntryDTO {
-	return toSkillEntryDTOs(p.runtime.registry.Skills)
+	return storeToSkillEntryDTOs(p.runtime.skillsStore)
 }
 func (p *projectInstallContext) Reconcile() error {
 	return reconcileProjectRemoteSkills(p.runtime)

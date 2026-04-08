@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"skillshare/internal/config"
+	"skillshare/internal/install"
 )
 
 func TestHandleSync_MergeMode(t *testing.T) {
@@ -53,16 +53,13 @@ func TestHandleSync_IgnoredSkillNotPrunedFromRegistry(t *testing.T) {
 	// Add .skillignore to exclude the second skill
 	os.WriteFile(filepath.Join(src, ".skillignore"), []byte("ignored-skill\n"), 0644)
 
-	// Pre-populate registry with both entries and persist to disk
-	// (server auto-reloads registry from disk on each request)
-	s.registry = &config.Registry{
-		Skills: []config.SkillEntry{
-			{Name: "kept-skill", Source: "github.com/user/kept"},
-			{Name: "ignored-skill", Source: "github.com/user/ignored"},
-		},
-	}
-	if err := s.registry.Save(s.cfg.RegistryDir); err != nil {
-		t.Fatalf("failed to save registry: %v", err)
+	// Pre-populate store with both entries and persist to disk
+	// (server auto-reloads metadata from disk on each request)
+	s.skillsStore = install.NewMetadataStore()
+	s.skillsStore.Set("kept-skill", &install.MetadataEntry{Source: "github.com/user/kept"})
+	s.skillsStore.Set("ignored-skill", &install.MetadataEntry{Source: "github.com/user/ignored"})
+	if err := s.skillsStore.Save(src); err != nil {
+		t.Fatalf("failed to save metadata: %v", err)
 	}
 
 	// Run sync (non-dry-run)
@@ -76,12 +73,9 @@ func TestHandleSync_IgnoredSkillNotPrunedFromRegistry(t *testing.T) {
 	}
 
 	// Both entries should survive — ignored skill still exists on disk
-	if len(s.registry.Skills) != 2 {
-		names := make([]string, len(s.registry.Skills))
-		for i, sk := range s.registry.Skills {
-			names[i] = sk.Name
-		}
-		t.Fatalf("expected 2 registry entries after sync, got %d: %v", len(s.registry.Skills), names)
+	names := s.skillsStore.List()
+	if len(names) != 2 {
+		t.Fatalf("expected 2 metadata entries after sync, got %d: %v", len(names), names)
 	}
 }
 

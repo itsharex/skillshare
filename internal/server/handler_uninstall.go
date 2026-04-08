@@ -178,47 +178,45 @@ func (s *Server) handleBatchUninstall(w http.ResponseWriter, r *http.Request) {
 	if succeeded > 0 {
 		// removedPaths contains exact RelPaths (e.g. "frontend/vue/vue-best-practices")
 		// and repo dir names (e.g. "_team-skills"), collected during the uninstall loop.
-		filtered := make([]config.SkillEntry, 0, len(s.registry.Skills))
-		for _, entry := range s.registry.Skills {
-			fullName := entry.FullName()
-			if removedPaths[fullName] || removedPaths[entry.Name] {
+		for _, name := range s.skillsStore.List() {
+			entry := s.skillsStore.Get(name)
+			if entry == nil {
 				continue
 			}
-			// Tracked repos: registry stores group without "_" prefix (e.g., group="team-skills"
+			if removedPaths[name] {
+				s.skillsStore.Remove(name)
+				continue
+			}
+			// Tracked repos: store uses group without "_" prefix (e.g., group="team-skills"
 			// for repo dir "_team-skills"). Reconstruct the prefixed name to match removedPaths.
 			if entry.Group != "" && removedPaths["_"+entry.Group] {
+				s.skillsStore.Remove(name)
 				continue
 			}
 			// When a group directory is uninstalled, also remove its member skills
 			memberOfRemoved := false
 			for rp := range removedPaths {
-				if strings.HasPrefix(fullName, rp+"/") {
+				if strings.HasPrefix(name, rp+"/") {
 					memberOfRemoved = true
 					break
 				}
 			}
 			if memberOfRemoved {
-				continue
+				s.skillsStore.Remove(name)
 			}
-			filtered = append(filtered, entry)
 		}
-		s.registry.Skills = filtered
 
-		regDir := s.cfg.RegistryDir
-		if s.IsProjectMode() {
-			regDir = filepath.Join(s.projectRoot, ".skillshare")
-		}
-		if err := s.registry.Save(regDir); err != nil {
-			log.Printf("warning: failed to save registry: %v", err)
+		if err := s.skillsStore.Save(s.cfg.Source); err != nil {
+			log.Printf("warning: failed to save metadata: %v", err)
 		}
 
 		if s.IsProjectMode() {
 			if rErr := config.ReconcileProjectSkills(
-				s.projectRoot, s.projectCfg, s.registry, s.cfg.Source); rErr != nil {
+				s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.Source); rErr != nil {
 				log.Printf("warning: failed to reconcile project skills config: %v", rErr)
 			}
 		} else {
-			if rErr := config.ReconcileGlobalSkills(s.cfg, s.registry); rErr != nil {
+			if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
 				log.Printf("warning: failed to reconcile global skills config: %v", rErr)
 			}
 		}
