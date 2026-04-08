@@ -294,7 +294,7 @@ func cmdSync(args []string) error {
 	}
 
 	if hasAll {
-		if extrasErr := cmdSyncExtras(rest); extrasErr != nil {
+		if extrasErr := cmdSyncExtras(append([]string{"-g"}, rest...)); extrasErr != nil {
 			ui.Warning("Extras sync: %v", extrasErr)
 		}
 	}
