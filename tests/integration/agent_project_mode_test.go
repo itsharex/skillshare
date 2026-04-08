@@ -50,42 +50,31 @@ func setupProjectWithAgents(t *testing.T, sb *testutil.Sandbox) string {
 	return projectDir
 }
 
-// --- status -p agents ---
+// --- status -p (always shows skills + agents) ---
 
-func TestStatusProject_Agents(t *testing.T) {
+func TestStatusProject_ShowsAgents(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
 	projectDir := setupProjectWithAgents(t, sb)
 
-	result := sb.RunCLIInDir(projectDir, "status", "-p", "agents")
-	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Agents")
-	result.AssertAnyOutputContains(t, "1 agents")
-}
-
-func TestStatusProject_Agents_JSON(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	projectDir := setupProjectWithAgents(t, sb)
-
-	result := sb.RunCLIInDir(projectDir, "status", "-p", "agents", "--json")
-	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, `"agents"`)
-	result.AssertAnyOutputContains(t, `"count"`)
-}
-
-func TestStatusProject_All(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	projectDir := setupProjectWithAgents(t, sb)
-
-	result := sb.RunCLIInDir(projectDir, "status", "-p", "--all")
+	result := sb.RunCLIInDir(projectDir, "status", "-p")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Source") // skill section
 	result.AssertAnyOutputContains(t, "Agents") // agent section
+	result.AssertAnyOutputContains(t, "1 agents")
+}
+
+func TestStatusProject_JSON_IncludesAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := setupProjectWithAgents(t, sb)
+
+	result := sb.RunCLIInDir(projectDir, "status", "-p", "--json")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, `"agents"`)
+	result.AssertAnyOutputContains(t, `"count"`)
 }
 
 // --- check -p agents ---
@@ -266,14 +255,15 @@ func TestSyncProject_All_NestedAgentsSameBasename_FlattensAndStaysStable(t *test
 
 // --- default -p (skills only, unchanged) ---
 
-func TestStatusProject_Default_SkillsOnly(t *testing.T) {
+func TestStatusProject_Default_ShowsBoth(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
 	projectDir := setupProjectWithAgents(t, sb)
 
+	// status now always shows both skills and agents
 	result := sb.RunCLIInDir(projectDir, "status", "-p")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Source")
-	result.AssertOutputNotContains(t, "Agents")
+	result.AssertAnyOutputContains(t, "Agents")
 }

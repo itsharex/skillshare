@@ -10,9 +10,9 @@ import (
 	"skillshare/internal/testutil"
 )
 
-// --- status agents ---
+// --- status (always shows skills + agents) ---
 
-func TestStatus_Agents_ShowsAgentInfo(t *testing.T) {
+func TestStatus_ShowsAgentInfo(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -31,13 +31,13 @@ targets:
       path: ` + claudeAgents + `
 `)
 
-	result := sb.RunCLI("status", "agents")
+	result := sb.RunCLI("status")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Agents")
 	result.AssertAnyOutputContains(t, "2 agents")
 }
 
-func TestStatus_Agents_JSON_IncludesAgents(t *testing.T) {
+func TestStatus_JSON_IncludesAgents(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -47,13 +47,13 @@ func TestStatus_Agents_JSON_IncludesAgents(t *testing.T) {
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	result := sb.RunCLI("status", "agents", "--json")
+	result := sb.RunCLI("status", "--json")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, `"agents"`)
 	result.AssertAnyOutputContains(t, `"count"`)
 }
 
-func TestStatus_Default_NoAgentSection(t *testing.T) {
+func TestStatus_Default_ShowsBothSkillsAndAgents(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -66,24 +66,6 @@ func TestStatus_Default_NoAgentSection(t *testing.T) {
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
 	result := sb.RunCLI("status")
-	result.AssertSuccess(t)
-	// Default status should NOT include agent section
-	result.AssertOutputNotContains(t, "Agents")
-}
-
-func TestStatus_All_ShowsBoth(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	sb.CreateSkill("my-skill", map[string]string{
-		"SKILL.md": "---\nname: my-skill\n---\n# Content",
-	})
-	createAgentSource(t, sb, map[string]string{
-		"tutor.md": "# Tutor agent",
-	})
-	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
-
-	result := sb.RunCLI("status", "--all")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Source") // skill section
 	result.AssertAnyOutputContains(t, "Agents") // agent section

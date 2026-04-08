@@ -153,10 +153,10 @@ ss sync --all -g
 Expected:
 - exit_code: 0
 
-### 9. Status agents — text output
+### 9. Status — shows skills and agents by default
 
 ```bash
-ss status agents -g
+ss status -g
 ```
 
 Expected:
@@ -164,26 +164,15 @@ Expected:
 - regex: [Aa]gent
 - regex: [Ss]ource
 
-### 10. Status agents — JSON output
+### 10. Status JSON — includes agents by default
 
 ```bash
-ss status agents --json -g
+ss status --json -g
 ```
 
 Expected:
 - exit_code: 0
 - jq: .agents.exists == true
-- jq: .agents.count == 3
-
-### 11. Status all — includes both skills and agents
-
-```bash
-ss status --all --json -g
-```
-
-Expected:
-- exit_code: 0
-- jq: .agents != null
 - jq: .agents.count == 3
 
 ### 12. Diff agents — no drift after sync
@@ -440,8 +429,8 @@ Expected:
 - [ ] `sync agents --dry-run` makes no changes
 - [ ] Default `sync` does NOT sync agents
 - [ ] `sync all` syncs both skills and agents
-- [ ] `status agents` shows agent source and target info
-- [ ] `status agents --json` returns structured agent data
+- [ ] `status` shows both skills and agents by default
+- [ ] `status --json` includes agents section
 - [ ] `diff agents` shows drift status
 - [ ] `collect agents` collects local agent files to source
 - [ ] `uninstall agents <name> --force` moves agent to trash
