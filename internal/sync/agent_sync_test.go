@@ -491,7 +491,10 @@ func TestSyncAgents_MergeMode_NestedSameBasename_IsStable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readlink team-a target: %v", err)
 	}
-	if linkA != teamAPath {
+	// EvalSymlinks to handle macOS /var → /private/var alias.
+	wantA, _ := filepath.EvalSymlinks(teamAPath)
+	gotA, _ := filepath.EvalSymlinks(linkA)
+	if gotA != wantA {
 		t.Fatalf("team-a symlink = %q, want %q", linkA, teamAPath)
 	}
 
@@ -499,7 +502,9 @@ func TestSyncAgents_MergeMode_NestedSameBasename_IsStable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readlink team-b target: %v", err)
 	}
-	if linkB != teamBPath {
+	wantB, _ := filepath.EvalSymlinks(teamBPath)
+	gotB, _ := filepath.EvalSymlinks(linkB)
+	if gotB != wantB {
 		t.Fatalf("team-b symlink = %q, want %q", linkB, teamBPath)
 	}
 }
