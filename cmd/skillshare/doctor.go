@@ -411,13 +411,16 @@ func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[
 
 		targetIssues := checkTargetIssues(target, cfg.Source)
 
+		// Target name header
+		fmt.Printf("%s%s%s\n", ui.Bold, name, ui.Reset)
+
 		if len(targetIssues) > 0 {
-			ui.Error("%s [%s]: %s", name, mode, strings.Join(targetIssues, ", "))
+			fmt.Printf("  skills   %s[%s] %s%s\n", ui.Red, mode, strings.Join(targetIssues, ", "), ui.Reset)
 			result.addError()
 			details = append(details, fmt.Sprintf("%s: %s", name, strings.Join(targetIssues, ", ")))
 			hasError = true
 		} else {
-			cached := displayTargetStatus(name, target, cfg.Source, mode)
+			cached := displayTargetStatus(target, cfg.Source, mode)
 			cache[name] = cached
 		}
 
@@ -480,7 +483,7 @@ func checkTargetIssues(target config.TargetConfig, source string) []string {
 	return targetIssues
 }
 
-func displayTargetStatus(name string, target config.TargetConfig, source, mode string) cachedTargetStatus {
+func displayTargetStatus(target config.TargetConfig, source, mode string) cachedTargetStatus {
 	sc := target.SkillsConfig()
 	var statusStr string
 	var cached cachedTargetStatus
@@ -496,7 +499,7 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 		case sync.StatusMerged:
 			statusStr = fmt.Sprintf("merged (%d shared, %d local)", linkedCount, localCount)
 		case sync.StatusLinked:
-			statusStr = "linked (needs sync to apply merge mode)"
+			statusStr = "linked (needs sync)"
 			needsSync = true
 		default:
 			statusStr = status.String()
@@ -509,7 +512,7 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 		case sync.StatusCopied:
 			statusStr = fmt.Sprintf("copied (%d managed, %d local)", managedCount, localCount)
 		case sync.StatusLinked:
-			statusStr = "linked (needs sync to apply copy mode)"
+			statusStr = "linked (needs sync)"
 			needsSync = true
 		default:
 			statusStr = status.String()
@@ -519,16 +522,16 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 		cached.status = status
 		statusStr = status.String()
 		if status == sync.StatusMerged {
-			statusStr = "merged (needs sync to apply symlink mode)"
+			statusStr = "merged (needs sync)"
 			needsSync = true
 		}
 	}
 
+	statusColor := ui.Green
 	if needsSync {
-		ui.Warning("%s [%s]: %s", name, mode, statusStr)
-	} else {
-		ui.Success("%s [%s]: %s", name, mode, statusStr)
+		statusColor = ui.Yellow
 	}
+	fmt.Printf("  skills   %s[%s] %s%s\n", statusColor, mode, statusStr, ui.Reset)
 	return cached
 }
 

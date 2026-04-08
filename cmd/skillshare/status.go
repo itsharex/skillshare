@@ -420,7 +420,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 					agentStatus = "drift"
 					driftLabel = ui.Yellow + " (drift)" + ui.Reset
 				}
-				printTargetSubItem("agents", agentStatus, fmt.Sprintf("%d/%d linked%s", linked, agentCount, driftLabel))
+				printTargetSubItem("agents", agentStatus, fmt.Sprintf("[merge] %d/%d linked%s", linked, agentCount, driftLabel))
 			}
 		}
 	}

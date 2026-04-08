@@ -277,7 +277,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 					agentStatus = "drift"
 					driftLabel = ui.Yellow + " (drift)" + ui.Reset
 				}
-				printTargetSubItem("agents", agentStatus, fmt.Sprintf("%d/%d linked%s", linked, agentCount, driftLabel))
+				printTargetSubItem("agents", agentStatus, fmt.Sprintf("[merge] %d/%d linked%s", linked, agentCount, driftLabel))
 			}
 		}
 	}

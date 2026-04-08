@@ -21,12 +21,12 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 	info, err := os.Stat(agentPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Printf("  agents   %s%-12s%s %s\n", ui.Gray, "not created", ui.Reset, ui.Dim+agentPath+ui.Reset)
+			fmt.Printf("  agents   %s[merge] not created%s\n", ui.Gray, ui.Reset)
 			result.addCheck("agent_target_"+name, checkPass,
 				fmt.Sprintf("Agent target %s: not created yet", name), nil)
 			return
 		}
-		fmt.Printf("  agents   %s%-12s%s %s\n", ui.Red, "error", ui.Reset, ui.Dim+err.Error()+ui.Reset)
+		fmt.Printf("  agents   %s[merge] error: %s%s\n", ui.Red, err.Error(), ui.Reset)
 		result.addError()
 		result.addCheck("agent_target_"+name, checkError,
 			fmt.Sprintf("Agent target %s: %v", name, err), nil)
@@ -34,7 +34,7 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 	}
 
 	if !info.IsDir() {
-		fmt.Printf("  agents   %s%-12s%s %s\n", ui.Red, "error", ui.Reset, ui.Dim+"not a directory"+ui.Reset)
+		fmt.Printf("  agents   %s[merge] error: not a directory%s\n", ui.Red, ui.Reset)
 		result.addError()
 		result.addCheck("agent_target_"+name, checkError,
 			fmt.Sprintf("Agent target %s: path is not a directory", name), nil)
@@ -43,8 +43,8 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 
 	linked, broken := countAgentLinksAndBroken(agentPath)
 	if broken > 0 {
-		msg := fmt.Sprintf("%d linked, %d broken", linked, broken)
-		fmt.Printf("  agents   %s%-12s%s %s\n", ui.Yellow, "broken", ui.Reset, ui.Dim+msg+ui.Reset)
+		msg := fmt.Sprintf("[merge] %d linked, %d broken", linked, broken)
+		fmt.Printf("  agents   %s%s%s\n", ui.Yellow, msg, ui.Reset)
 		result.addWarning()
 		result.addCheck("agent_target_"+name, checkWarning,
 			fmt.Sprintf("Agent target %s: %s", name, msg), nil)
@@ -52,16 +52,16 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 	}
 
 	if linked != agentCount && agentCount > 0 {
-		msg := fmt.Sprintf("%d/%d linked (drift)", linked, agentCount)
-		fmt.Printf("  agents   %s%-12s%s %s\n", ui.Yellow, "drift", ui.Reset, ui.Dim+msg+ui.Reset)
+		msg := fmt.Sprintf("[merge] drift (%d/%d linked)", linked, agentCount)
+		fmt.Printf("  agents   %s%s%s\n", ui.Yellow, msg, ui.Reset)
 		result.addWarning()
 		result.addCheck("agent_target_"+name, checkWarning,
 			fmt.Sprintf("Agent target %s: drift (%d/%d agents linked)", name, linked, agentCount), nil)
 		return
 	}
 
-	msg := fmt.Sprintf("%d/%d linked", linked, agentCount)
-	fmt.Printf("  agents   %s%-12s%s %s\n", ui.Green, "synced", ui.Reset, ui.Dim+msg+ui.Reset)
+	msg := fmt.Sprintf("[merge] synced (%d/%d linked)", linked, agentCount)
+	fmt.Printf("  agents   %s%s%s\n", ui.Green, msg, ui.Reset)
 	result.addCheck("agent_target_"+name, checkPass,
 		fmt.Sprintf("Agent target %s: %d agents synced", name, linked), nil)
 }
