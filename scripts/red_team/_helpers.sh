@@ -49,6 +49,28 @@ $content
 SKILL_EOF
 }
 
+# Write or merge a skill entry into the centralized .metadata.json store.
+# Usage: write_store_meta <source_dir> <skill_name> <json_entry>
+# Example: write_store_meta "$SOURCE_DIR" "my-skill" '{"source":"test","file_hashes":{"SKILL.md":"sha256:abc"}}'
+write_store_meta() {
+  local source_dir="$1"
+  local skill_name="$2"
+  local entry_json="$3"
+  local store_path="$source_dir/.metadata.json"
+
+  if [ -f "$store_path" ]; then
+    # Merge into existing store
+    local tmp
+    tmp=$(jq --arg name "$skill_name" --argjson entry "$entry_json" \
+      '.entries[$name] = $entry' "$store_path")
+    echo "$tmp" > "$store_path"
+  else
+    # Create new store
+    jq -n --arg name "$skill_name" --argjson entry "$entry_json" \
+      '{version:1, entries:{($name): $entry}}' > "$store_path"
+  fi
+}
+
 # Run skillshare with isolated config.
 # -g is placed after the subcommand to force global mode,
 # preventing auto-detection of .skillshare/ in the working directory.

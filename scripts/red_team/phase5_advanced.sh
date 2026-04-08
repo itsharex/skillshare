@@ -13,19 +13,8 @@ Safe content for traversal hardening checks."
 TRAVERSAL_HASH=$(shasum -a 256 "$TRAVERSAL_DIR/SKILL.md" | awk '{print $1}')
 echo "TOP SECRET" > "$TMPDIR_ROOT/secret.txt"
 
-cat > "$TRAVERSAL_DIR/.skillshare-meta.json" <<META_EOF
-{
-  "source": "test/traversal",
-  "type": "local",
-  "installed_at": "2026-01-01T00:00:00Z",
-  "file_hashes": {
-    "SKILL.md": "sha256:$TRAVERSAL_HASH",
-    "../../../secret.txt": "sha256:0000",
-    "../../secret.txt": "sha256:0000",
-    "/etc/passwd": "sha256:0000"
-  }
-}
-META_EOF
+write_store_meta "$SOURCE_DIR" "traversal-skill" \
+  "{\"source\":\"test/traversal\",\"type\":\"local\",\"installed_at\":\"2026-01-01T00:00:00Z\",\"file_hashes\":{\"SKILL.md\":\"sha256:$TRAVERSAL_HASH\",\"../../../secret.txt\":\"sha256:0000\",\"../../secret.txt\":\"sha256:0000\",\"/etc/passwd\":\"sha256:0000\"}}"
 
 ss_capture audit traversal-skill --format json
 if echo "$SS_OUTPUT" | jq -e '
@@ -45,16 +34,8 @@ create_skill "$SYMLINK_DIR" "# Symlink test
 Safe content only."
 
 SYMLINK_HASH=$(shasum -a 256 "$SYMLINK_DIR/SKILL.md" | awk '{print $1}')
-cat > "$SYMLINK_DIR/.skillshare-meta.json" <<META_EOF
-{
-  "source": "test/symlink",
-  "type": "local",
-  "installed_at": "2026-01-01T00:00:00Z",
-  "file_hashes": {
-    "SKILL.md": "sha256:$SYMLINK_HASH"
-  }
-}
-META_EOF
+write_store_meta "$SOURCE_DIR" "symlink-skill" \
+  "{\"source\":\"test/symlink\",\"type\":\"local\",\"installed_at\":\"2026-01-01T00:00:00Z\",\"file_hashes\":{\"SKILL.md\":\"sha256:$SYMLINK_HASH\"}}"
 
 echo "outside file content" > "$TMPDIR_ROOT/outside.txt"
 ln -s "$TMPDIR_ROOT/outside.txt" "$SYMLINK_DIR/external-link.txt"

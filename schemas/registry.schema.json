@@ -1,41 +1,43 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/runkids/skillshare/main/schemas/registry.schema.json",
-  "title": "Skillshare Registry",
-  "description": "Skill registry for skillshare — tracks installed/tracked skills. Location: ~/.config/skillshare/skills/registry.yaml (global) or .skillshare/registry.yaml (project). Auto-managed by reconciliation; manual edits are preserved.",
+  "title": "Skillshare Metadata Store",
+  "description": "Centralized metadata store for skillshare — tracks installed skills and agents. Location: ~/.config/skillshare/skills/.metadata.json (global) or .skillshare/skills/.metadata.json (project). Auto-managed; manual edits are preserved on reconciliation.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "skills": {
-      "type": "array",
-      "description": "Installed/tracked skills.",
-      "items": {
-        "$ref": "#/$defs/skillEntry"
+    "version": {
+      "type": "integer",
+      "description": "Schema version. Currently 1.",
+      "const": 1
+    },
+    "entries": {
+      "type": "object",
+      "description": "Map of skill/agent relative paths to their metadata entries.",
+      "additionalProperties": {
+        "$ref": "#/$defs/metadataEntry"
       }
     }
   },
+  "required": ["version", "entries"],
   "$defs": {
-    "skillEntry": {
+    "metadataEntry": {
       "type": "object",
-      "description": "A managed resource entry tracked in the registry.",
-      "required": ["name", "source"],
-      "additionalProperties": false,
+      "description": "Metadata for an installed skill or agent.",
       "properties": {
-        "name": {
+        "source": {
           "type": "string",
-          "description": "Resource name (skill directory name or agent file name).",
-          "examples": ["pdf", "_team-skills", "tutor"]
+          "description": "Original source input (GitHub path, local path, etc.).",
+          "examples": ["github.com/anthropics/skills/skills/pdf", "github.com/team/agents"]
         },
         "kind": {
           "type": "string",
-          "description": "Resource kind. Omitted or empty defaults to 'skill'. ('agent' is reserved for a future release.)",
-          "enum": ["skill", "agent"],
-          "default": "skill"
+          "description": "Resource kind. Empty or omitted defaults to 'skill'.",
+          "enum": ["", "skill", "agent"]
         },
-        "source": {
+        "type": {
           "type": "string",
-          "description": "GitHub path or local path where the resource was installed from.",
-          "examples": ["anthropics/skills/skills/pdf", "github.com/team/skills"]
+          "description": "Source type (github, local, git-https, git-ssh, etc.)."
         },
         "tracked": {
           "type": "boolean",
@@ -45,12 +47,45 @@
         "group": {
           "type": "string",
           "description": "Subdirectory group the resource belongs to (set by --into).",
-          "examples": ["frontend", "backend"]
+          "examples": ["frontend", "backend", "team/frontend"]
         },
         "branch": {
           "type": "string",
-          "description": "Git branch to clone from. Omit for remote default branch.",
-          "examples": ["develop", "frontend"]
+          "description": "Git branch to clone from. Omit for remote default branch."
+        },
+        "into": {
+          "type": "string",
+          "description": "Original --into value used during install."
+        },
+        "installed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of when the resource was installed."
+        },
+        "repo_url": {
+          "type": "string",
+          "description": "Git clone URL for the source repository.",
+          "examples": ["https://github.com/anthropics/skills.git"]
+        },
+        "subdir": {
+          "type": "string",
+          "description": "Subdirectory within the repo (for monorepo installs)."
+        },
+        "version": {
+          "type": "string",
+          "description": "Git commit hash at install/update time."
+        },
+        "tree_hash": {
+          "type": "string",
+          "description": "Git tree SHA of the subdir at install time."
+        },
+        "file_hashes": {
+          "type": "object",
+          "description": "Map of relative file paths to sha256:<hex> digests for integrity verification.",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
         }
       }
     }
