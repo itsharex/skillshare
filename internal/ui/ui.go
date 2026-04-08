@@ -137,7 +137,7 @@ func Status(name, status, detail string) {
 		statusColor = Red
 	}
 
-	fmt.Printf("  %-12s %s%-12s%s %s\n", name, statusColor, status, Reset, Dim+detail+Reset)
+	fmt.Printf("%-12s %s%-12s%s %s\n", name, statusColor, status, Reset, Dim+detail+Reset)
 }
 
 // Header prints a section header
