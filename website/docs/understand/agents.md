@@ -16,7 +16,7 @@ Some AI CLIs (Claude Code, Cursor, OpenCode, Augment) distinguish between **skil
 |---|---|---|
 | **Shape** | Directory containing `SKILL.md` + optional files | Single `.md` file |
 | **Name resolution** | `SKILL.md` frontmatter `name` field | Filename (e.g. `tutor.md` = "tutor"), optional frontmatter `name` override |
-| **Source directory** | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` |
+| **Source directory** | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` (customizable via `agents_source`) |
 | **Project source** | `.skillshare/skills/` | `.skillshare/agents/` |
 | **Ignore file** | `.skillignore` | `.agentignore` |
 | **Sync unit** | Directory symlink (merge), whole-dir symlink (symlink), directory copy (copy) | File symlink (merge), whole-dir symlink (symlink), file copy (copy) |
@@ -56,6 +56,18 @@ Some AI CLIs (Claude Code, Cursor, OpenCode, Augment) distinguish between **skil
 │   └── .agentignore
 └── config.yaml
 ```
+
+### Custom Source Directory
+
+In global mode, the agent source defaults to `~/.config/skillshare/agents/`. To use a custom location, set `agents_source` in `config.yaml`:
+
+```yaml
+agents_source: ~/my-agents
+```
+
+Project mode always uses `.skillshare/agents/` and does not support `agents_source`.
+
+See [Configuration — agents_source](/docs/reference/targets/configuration#agents-source) for details.
 
 ---
 

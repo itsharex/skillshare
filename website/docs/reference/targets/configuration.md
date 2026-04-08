@@ -111,6 +111,9 @@ skills:
     source: github.com/team/skills
     tracked: true
 
+# Custom agents source (optional, overrides default location)
+agents_source: ~/my-agents
+
 # Custom extras source (optional, overrides default location)
 extras_source: ~/my-extras
 
@@ -378,6 +381,24 @@ The `skills:` list is automatically updated after each `install` and `uninstall`
 :::note Migrated to .metadata.json
 Starting from v0.16.2, installed skill entries moved from `config.yaml` to a separate file. In the current version, all installation metadata is stored in a centralized `.metadata.json` inside the `skills/` directory. Migration from older formats (`registry.yaml`, per-skill `.skillshare-meta.json`) is automatic on first run.
 :::
+
+### `agents_source` {#agents-source}
+
+Custom source directory for agents. Overrides the default `~/.config/skillshare/agents/`.
+
+```yaml
+agents_source: ~/my-agents
+```
+
+When set, all agents are read from this directory instead of the default. Supports `~` expansion.
+
+Default: `~/.config/skillshare/agents/` (auto-detected, no need to set explicitly unless you want a custom location).
+
+:::note Global mode only
+Project mode always uses `.skillshare/agents/` and does not support `agents_source`.
+:::
+
+See [Agents](/docs/understand/agents) for details on agent file format, sync behavior, and supported targets.
 
 ### `extras` {#extras}
 
