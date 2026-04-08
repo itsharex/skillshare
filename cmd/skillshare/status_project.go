@@ -199,13 +199,10 @@ func buildProjectAgentStatusJSON(rt *projectRuntime) *statusJSONAgents {
 func resolveProjectAgentTargetPath(entry config.ProjectTargetEntry, builtinAgents map[string]config.TargetConfig, projectRoot string) string {
 	ac := entry.AgentsConfig()
 	if ac.Path != "" {
-		if filepath.IsAbs(ac.Path) {
-			return config.ExpandPath(ac.Path)
-		}
-		return filepath.Join(projectRoot, ac.Path)
+		return resolveProjectPath(projectRoot, ac.Path)
 	}
 	if builtin, ok := builtinAgents[entry.Name]; ok {
-		return config.ExpandPath(builtin.Path)
+		return resolveProjectPath(projectRoot, builtin.Path)
 	}
 	return ""
 }

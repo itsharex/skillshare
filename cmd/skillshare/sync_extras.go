@@ -319,10 +319,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 			}
 
 			// Expand ~ and resolve relative paths against project root
-			targetPath := config.ExpandPath(target.Path)
-			if !filepath.IsAbs(targetPath) {
-				targetPath = filepath.Join(cwd, targetPath)
-			}
+			targetPath := resolveProjectPath(cwd, target.Path)
 
 			// Skip extras "agents" targets that overlap with the agents sync system
 			if extra.Name == extrasAgentsName && isExtrasTargetOverlappingAgents(targetPath, agentTargetPaths) {
@@ -465,6 +462,9 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 				mode = "merge"
 			}
 			targetPath := config.ExpandPath(target.Path)
+			if projectRoot != "" {
+				targetPath = resolveProjectPath(projectRoot, target.Path)
+			}
 
 			if extra.Name == extrasAgentsName && isExtrasTargetOverlappingAgents(targetPath, agentTargetPaths) {
 				entry.Targets = append(entry.Targets, syncExtrasJSONTarget{
