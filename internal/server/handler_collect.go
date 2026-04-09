@@ -33,50 +33,107 @@ type collectSkillRef struct {
 	TargetName string `json:"targetName"`
 }
 
-// handleCollectScan scans targets for local (non-symlinked) skills.
-// GET /api/collect/scan?target=<name>  (optional filter)
+// handleCollectScan scans targets for local (non-symlinked) skills and/or agents.
+// GET /api/collect/scan?target=<name>&kind=skill|agent  (both optional)
+// When kind is omitted, scans for both skills and agents.
 func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.Source
 	globalMode := s.cfg.Mode
 	targets := s.cloneTargets()
+	agentsSource := s.agentsSource()
 	s.mu.RUnlock()
 
 	filterTarget := r.URL.Query().Get("target")
+	kind := r.URL.Query().Get("kind")
+	if kind != "" && kind != kindSkill && kind != kindAgent {
+		writeError(w, http.StatusBadRequest, "invalid kind: must be 'skill', 'agent', or empty")
+		return
+	}
 
-	var scanTargets []scanTarget
+	// Collect items per target, merging skills and agents.
+	targetItems := make(map[string][]localSkillItem)
 	totalCount := 0
 
-	for name, target := range targets {
-		if filterTarget != "" && filterTarget != name {
+	// --- Skill scan ---
+	if kind != kindAgent {
+		for name, target := range targets {
+			if filterTarget != "" && filterTarget != name {
+				continue
+			}
+
+			sc := target.SkillsConfig()
+			mode := ssync.EffectiveMode(sc.Mode)
+			if sc.Mode == "" && globalMode != "" {
+				mode = globalMode
+			}
+			locals, err := ssync.FindLocalSkills(sc.Path, source, mode)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "scan failed for "+name+": "+err.Error())
+				return
+			}
+
+			for _, sk := range locals {
+				targetItems[name] = append(targetItems[name], localSkillItem{
+					Name:       sk.Name,
+					Kind:       kindSkill,
+					Path:       sk.Path,
+					TargetName: name,
+					Size:       ssync.CalculateDirSize(sk.Path),
+					ModTime:    sk.ModTime.Format(time.RFC3339),
+				})
+			}
+		}
+	}
+
+	// --- Agent scan ---
+	if kind != kindSkill {
+		builtinAgents := s.builtinAgentTargets()
+		for name, target := range targets {
+			if filterTarget != "" && filterTarget != name {
+				continue
+			}
+			agentPath := resolveAgentPath(target, builtinAgents, name)
+			if agentPath == "" || agentsSource == "" {
+				continue
+			}
+			localAgents, err := ssync.FindLocalAgents(agentPath, agentsSource)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "agent scan failed for "+name+": "+err.Error())
+				return
+			}
+			for _, ag := range localAgents {
+				var size int64
+				var modTime string
+				if info, err := os.Stat(ag.Path); err == nil {
+					size = info.Size()
+					modTime = info.ModTime().Format(time.RFC3339)
+				}
+				targetItems[name] = append(targetItems[name], localSkillItem{
+					Name:       ag.Name,
+					Kind:       kindAgent,
+					Path:       ag.Path,
+					TargetName: name,
+					Size:       size,
+					ModTime:    modTime,
+				})
+			}
+		}
+	}
+
+	// Build response from merged map.
+	var scanTargets []scanTarget
+	for name := range targets {
+		items := targetItems[name]
+		if len(items) == 0 && kind != "" {
+			// When filtering by kind, skip targets with no items of that kind.
 			continue
 		}
-
-		sc := target.SkillsConfig()
-		mode := ssync.EffectiveMode(sc.Mode)
-		if sc.Mode == "" && globalMode != "" {
-			mode = globalMode
-		}
-		locals, err := ssync.FindLocalSkills(sc.Path, source, mode)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "scan failed for "+name+": "+err.Error())
-			return
-		}
-
-		items := make([]localSkillItem, 0, len(locals))
-		for _, sk := range locals {
-			items = append(items, localSkillItem{
-				Name:       sk.Name,
-				Kind:       "skill",
-				Path:       sk.Path,
-				TargetName: name,
-				Size:       ssync.CalculateDirSize(sk.Path),
-				ModTime:    sk.ModTime.Format(time.RFC3339),
-			})
-		}
-
 		totalCount += len(items)
+		if items == nil {
+			items = []localSkillItem{}
+		}
 		scanTargets = append(scanTargets, scanTarget{
 			TargetName: name,
 			Skills:     items,
