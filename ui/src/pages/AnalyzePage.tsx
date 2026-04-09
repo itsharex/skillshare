@@ -715,7 +715,7 @@ function SkillTable({
                     <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-pencil truncate hover:underline">{skill.path}</span>
-                        {skill.is_tracked && <Badge variant="info" size="sm">tracked</Badge>}
+                        {skill.is_tracked && <Badge variant="info" size="sm">Tracked</Badge>}
                       </div>
                     </td>
                     <td className="py-3 pr-4 text-pencil-light font-mono text-xs">{formatTokens(skill.description_tokens)}</td>
@@ -786,7 +786,7 @@ function SkillDetailDialog({
         <div className="flex items-center gap-2 min-w-0">
           <FileText size={20} strokeWidth={2.5} className="text-pencil shrink-0" />
           <h2 className="text-lg font-bold text-pencil truncate">{skill.path}</h2>
-          {skill.is_tracked && <Badge variant="info" size="sm">tracked</Badge>}
+          {skill.is_tracked && <Badge variant="info" size="sm">Tracked</Badge>}
         </div>
         <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer shrink-0" aria-label="Close">
           <X size={18} strokeWidth={2.5} />

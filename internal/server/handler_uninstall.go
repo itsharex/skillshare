@@ -49,7 +49,101 @@ func (s *Server) handleBatchUninstall(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "names array is required and must not be empty")
 		return
 	}
+	if body.Kind != "" && body.Kind != "skill" && body.Kind != "agent" {
+		writeError(w, http.StatusBadRequest, "invalid kind: "+body.Kind)
+		return
+	}
 
+	// Agent-mode batch uninstall
+	if body.Kind == "agent" {
+		s.handleBatchUninstallAgents(w, body, start)
+		return
+	}
+
+	// Skill-mode (default) batch uninstall
+	s.handleBatchUninstallSkills(w, body, start)
+}
+
+func (s *Server) handleBatchUninstallAgents(w http.ResponseWriter, body batchUninstallRequest, start time.Time) {
+	agentsSource := s.agentsSource()
+	if agentsSource == "" {
+		writeError(w, http.StatusInternalServerError, "agents source not configured")
+		return
+	}
+
+	results := make([]batchUninstallItemResult, 0, len(body.Names))
+	var removedNames []string
+	succeeded, failed := 0, 0
+	var firstErr string
+
+	for _, name := range body.Names {
+		res := batchUninstallItemResult{Name: name, Kind: "agent"}
+
+		agent, err := resolveAgentResource(agentsSource, name)
+		if err != nil {
+			res.Success = false
+			res.Error = "agent not found: " + name
+			results = append(results, res)
+			failed++
+			if firstErr == "" {
+				firstErr = res.Error
+			}
+			continue
+		}
+
+		displayName := agentMetaKey(agent.RelPath)
+		legacySidecar := filepath.Join(filepath.Dir(agent.SourcePath), filepath.Base(displayName)+".skillshare-meta.json")
+		if _, err := trash.MoveAgentToTrash(agent.SourcePath, legacySidecar, displayName, s.agentTrashBase()); err != nil {
+			res.Success = false
+			res.Error = fmt.Sprintf("failed to trash agent: %v", err)
+			results = append(results, res)
+			failed++
+			if firstErr == "" {
+				firstErr = res.Error
+			}
+			continue
+		}
+
+		removedNames = append(removedNames, displayName)
+		res.Success = true
+		res.MovedToTrash = true
+		results = append(results, res)
+		succeeded++
+	}
+
+	if succeeded > 0 && s.agentsStore != nil {
+		for _, name := range removedNames {
+			s.agentsStore.Remove(name)
+		}
+		if err := s.agentsStore.Save(agentsSource); err != nil {
+			log.Printf("warning: failed to save agent metadata after batch uninstall: %v", err)
+		}
+	}
+
+	status := "ok"
+	if failed > 0 && succeeded > 0 {
+		status = "partial"
+	} else if failed > 0 {
+		status = "error"
+	}
+
+	s.writeOpsLog("uninstall", status, start, map[string]any{
+		"names": body.Names,
+		"kind":  "agent",
+		"scope": "ui",
+		"count": succeeded,
+	}, firstErr)
+
+	writeJSON(w, map[string]any{
+		"results": results,
+		"summary": batchUninstallSummary{
+			Succeeded: succeeded,
+			Failed:    failed,
+		},
+	})
+}
+
+func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUninstallRequest, start time.Time) {
 	discovered, err := sync.DiscoverSourceSkills(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
@@ -70,7 +164,7 @@ func (s *Server) handleBatchUninstall(w http.ResponseWriter, r *http.Request) {
 	var firstErr string
 
 	for _, name := range body.Names {
-		res := batchUninstallItemResult{Name: name}
+		res := batchUninstallItemResult{Name: name, Kind: "skill"}
 
 		if strings.HasPrefix(name, "_") {
 			repoPath := filepath.Join(s.cfg.Source, name)

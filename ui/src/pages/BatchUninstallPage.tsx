@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useDeferredValue } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Trash2,
@@ -14,6 +14,8 @@ import {
   Users,
   Globe,
   FolderOpen,
+  Puzzle,
+  Bot,
 } from 'lucide-react';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { api } from '../api/client';
@@ -33,6 +35,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { Virtuoso } from 'react-virtuoso';
 import { radius } from '../design';
 import KindBadge from '../components/KindBadge';
+import SourceBadge from '../components/SourceBadge';
 
 /* ── Glob → Regex (supports * and ? only) ──────────── */
 
@@ -52,6 +55,7 @@ function globToRegex(pattern: string): RegExp {
 /* ── Types ──────────────────────────────────────────── */
 
 type FilterType = 'all' | 'tracked' | 'github' | 'local';
+type ResourceTab = 'skills' | 'agents';
 type Phase = 'selecting' | 'uninstalling' | 'done';
 
 function matchTypeFilter(skill: Skill, filterType: FilterType): boolean {
@@ -70,11 +74,6 @@ const typeFilterOptions: { key: FilterType; label: string; icon: React.ReactNode
   { key: 'local', label: 'Local', icon: <FolderOpen size={14} strokeWidth={2.5} /> },
 ];
 
-function getTypeLabel(type?: string): string | undefined {
-  if (!type) return undefined;
-  if (type === 'github-subdir') return 'github';
-  return type;
-}
 
 /** Convert flat name (a__b__c) to path display (a/b/c) */
 function displayPath(flatName: string): string {
@@ -93,7 +92,32 @@ export default function BatchUninstallPage() {
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
   });
-  const skills = data?.resources ?? [];
+  const allSkills = data?.resources ?? [];
+
+  // Tab state (skills vs agents)
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<ResourceTab>(() => {
+    const urlTab = searchParams.get('tab');
+    if (urlTab === 'agents') return 'agents';
+    return 'skills';
+  });
+  const changeTab = (tab: ResourceTab) => {
+    setActiveTab(tab);
+    setTypeFilter('all');
+    setGroup('(all)');
+    setPattern('');
+    setSelected(new Set());
+  };
+
+  // Tab-scoped skills
+  const skills = useMemo(
+    () => activeTab === 'agents'
+      ? allSkills.filter((s) => s.kind === 'agent')
+      : allSkills.filter((s) => s.kind !== 'agent'),
+    [allSkills, activeTab],
+  );
+  const skillTabCount = useMemo(() => allSkills.filter((s) => s.kind !== 'agent').length, [allSkills]);
+  const agentTabCount = useMemo(() => allSkills.filter((s) => s.kind === 'agent').length, [allSkills]);
 
   // Filter state
   const [group, setGroup] = useState('(all)');
@@ -251,7 +275,7 @@ export default function BatchUninstallPage() {
     setPhase('uninstalling');
     try {
       const apiNames = buildApiNames();
-      const res = await api.batchUninstall({ names: apiNames, force: forceChecked });
+      const res = await api.batchUninstall({ names: apiNames, kind: activeTab === 'agents' ? 'agent' : 'skill', force: forceChecked });
       setResults(res.results);
       setSummary(res.summary);
       setPhase('done');
@@ -286,7 +310,7 @@ export default function BatchUninstallPage() {
 
   if (isPending) return <PageSkeleton />;
 
-  if (skills.length === 0) {
+  if (allSkills.length === 0) {
     return (
       <div className="space-y-5 animate-fade-in">
         <PageHeader title="Uninstall Skills" icon={<Trash2 size={24} strokeWidth={2.5} />} />
@@ -309,9 +333,42 @@ export default function BatchUninstallPage() {
       <PageHeader
         title="Uninstall Skills"
         icon={<Trash2 size={24} strokeWidth={2.5} />}
-        subtitle={`${skills.length} skill${skills.length !== 1 ? 's' : ''} installed`}
-        className="mb-2!"
+        subtitle={`${allSkills.length} resource${allSkills.length !== 1 ? 's' : ''} installed`}
+        className="mb-4!"
       />
+
+      {/* ── Resource type tabs (Skills / Agents) ── */}
+      <nav className="ss-resource-tabs flex items-center gap-6 border-b-2 border-muted -mx-4 px-4 md:-mx-8 md:px-8" role="tablist">
+        {([
+          { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: skillTabCount },
+          { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: agentTabCount },
+        ]).map((tab) => (
+          <button
+            key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            onClick={() => changeTab(tab.key)}
+            className={`
+              ss-resource-tab
+              inline-flex items-center gap-1.5 px-1 pb-2.5 text-sm font-semibold cursor-pointer
+              transition-all duration-150 border-b-[3px] -mb-[2px]
+              ${activeTab === tab.key
+                ? 'border-pencil text-pencil'
+                : 'border-transparent text-pencil-light hover:text-pencil hover:border-muted-dark'
+              }
+            `}
+          >
+            {tab.icon}
+            {tab.label}
+            <span className={`
+              text-[11px] font-medium px-1.5 py-0.5 rounded-[var(--radius-sm)]
+              ${activeTab === tab.key ? 'bg-pencil/10 text-pencil' : 'bg-muted text-pencil-light'}
+            `}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </nav>
 
       {/* ── Sticky Toolbar (matches SkillsPage pattern) ── */}
       <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 py-2 mb-1 space-y-2">
@@ -440,9 +497,7 @@ export default function BatchUninstallPage() {
                     {repo && (
                       <Badge variant="info" size="sm">{repo.replace(/^_/, '')}</Badge>
                     )}
-                    <Badge variant="default" size="sm">
-                      {skill.isInRepo ? 'tracked' : (getTypeLabel(skill.type) ?? 'local')}
-                    </Badge>
+                    <SourceBadge type={skill.type} isInRepo={skill.isInRepo} />
                   </div>
                 </button>
               );

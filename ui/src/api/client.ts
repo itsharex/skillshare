@@ -730,6 +730,7 @@ export interface BatchInstallResult {
 
 export interface BatchUninstallRequest {
   names: string[];
+  kind?: 'skill' | 'agent';
   force?: boolean;
 }
 

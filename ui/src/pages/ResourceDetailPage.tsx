@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
 import KindBadge from '../components/KindBadge';
+import SourceBadge from '../components/SourceBadge';
 import Card from '../components/Card';
 import CopyButton from '../components/CopyButton';
 import Button from '../components/Button';
@@ -94,13 +95,6 @@ function parseSkillMarkdown(content: string): { manifest: SkillManifest; markdow
 
   const markdown = content.slice(match[0].length);
   return { manifest, markdown };
-}
-
-function skillTypeLabel(type?: string): string {
-  if (!type) return 'Local';
-  if (type === 'github-subdir') return 'GitHub';
-  if (type === 'github') return 'GitHub';
-  return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
 /** Returns a lucide icon component + color class for a filename */
@@ -384,9 +378,8 @@ export default function SkillDetailPage() {
             {resource.name}
           </h2>
           <KindBadge kind={resource.kind} />
-          {resource.disabled && <Badge variant="danger">disabled</Badge>}
-          {resource.isInRepo && <Badge variant="warning">tracked repo</Badge>}
-          {skillTypeLabel(resource.type) && <Badge variant="info">{skillTypeLabel(resource.type)}</Badge>}
+          {resource.disabled && <Badge variant="danger">Disabled</Badge>}
+          <SourceBadge type={resource.type} isInRepo={resource.isInRepo} />
           {resource.targets && resource.targets.length > 0 && (
             <span className="inline-flex items-center gap-1">
               <Target size={13} strokeWidth={2.5} className="text-pencil-light" />

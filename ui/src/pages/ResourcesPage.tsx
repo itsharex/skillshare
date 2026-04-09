@@ -34,6 +34,7 @@ import type { GridComponents } from 'react-virtuoso';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
 import KindBadge from '../components/KindBadge';
+import SourceBadge from '../components/SourceBadge';
 import { Input, Select, type SelectOption } from '../components/Input';
 import { PageSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
@@ -531,11 +532,6 @@ function matchFilter(skill: Skill, filterType: FilterType): boolean {
   }
 }
 
-function getTypeLabel(type?: string): string | undefined {
-  if (!type) return undefined;
-  if (type === 'github-subdir') return 'github';
-  return type;
-}
 
 function sortSkills(skills: Skill[], sortType: SortType): Skill[] {
   const sorted = [...skills];
@@ -673,9 +669,8 @@ const SkillPostit = memo(function SkillPostit({
             <span />
           )}
           <div className="flex items-center gap-1.5 shrink-0">
-            {skill.disabled && <Badge variant="danger">disabled</Badge>}
-            {skill.isInRepo && <Badge variant="default">tracked</Badge>}
-            {!skill.isInRepo && getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
+            {skill.disabled && <Badge variant="danger">Disabled</Badge>}
+            <SourceBadge type={skill.type} isInRepo={skill.isInRepo} />
             {skill.branch && (
               <Badge variant="default">
                 <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
@@ -1391,13 +1386,8 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
             }
             <span className="text-sm text-pencil truncate">{skill.name}</span>
             <span className="ml-auto shrink-0 flex items-center gap-1">
-              {skill.disabled && <Badge variant="danger">disabled</Badge>}
-              {skill.isInRepo
-                ? <Badge variant="default">tracked</Badge>
-                : getTypeLabel(skill.type)
-                  ? <Badge variant="info">{getTypeLabel(skill.type)}</Badge>
-                  : <Badge variant="default">local</Badge>
-              }
+              {skill.disabled && <Badge variant="danger">Disabled</Badge>}
+              <SourceBadge type={skill.type} isInRepo={skill.isInRepo} />
               {skill.branch && (
                 <Badge variant="default">
                   <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
@@ -1682,7 +1672,7 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
                           ? 'var(--color-pencil-light)'
                           : 'var(--color-muted)',
                       }}
-                      title={skill.isInRepo ? 'tracked' : 'local'}
+                      title={skill.isInRepo ? 'Tracked' : 'Local'}
                     />
                   </td>
                   {/* Name + path subtitle + source */}
@@ -1718,14 +1708,8 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
                   {/* Type badges */}
                   <td className="py-3.5 pr-4">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {skill.disabled && <Badge variant="danger">disabled</Badge>}
-                      {skill.isInRepo ? (
-                        <Badge variant="default">tracked</Badge>
-                      ) : getTypeLabel(skill.type) ? (
-                        <Badge variant="info">{getTypeLabel(skill.type)}</Badge>
-                      ) : (
-                        <Badge variant="default">local</Badge>
-                      )}
+                      {skill.disabled && <Badge variant="danger">Disabled</Badge>}
+                      <SourceBadge type={skill.type} isInRepo={skill.isInRepo} />
                       {skill.branch && (
                         <Badge variant="default">
                           <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />

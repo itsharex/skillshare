@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Trash2,
   Clock,
   RotateCcw,
   X,
   RefreshCw,
+  Puzzle,
+  Bot,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -54,7 +56,19 @@ export default function TrashPage() {
   const [emptyOpen, setEmptyOpen] = useState(false);
   const [emptying, setEmptying] = useState(false);
 
-  const items = data?.items ?? [];
+  const allItems = data?.items ?? [];
+
+  // Tab state
+  type ResourceTab = 'skills' | 'agents';
+  const [activeTab, setActiveTab] = useState<ResourceTab>('skills');
+  const skillCount = useMemo(() => allItems.filter((i) => (i.kind ?? 'skill') !== 'agent').length, [allItems]);
+  const agentCount = useMemo(() => allItems.filter((i) => i.kind === 'agent').length, [allItems]);
+  const items = useMemo(
+    () => activeTab === 'agents'
+      ? allItems.filter((i) => i.kind === 'agent')
+      : allItems.filter((i) => (i.kind ?? 'skill') !== 'agent'),
+    [allItems, activeTab],
+  );
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.trash });
@@ -126,12 +140,13 @@ export default function TrashPage() {
         subtitle={isProjectMode
           ? 'Recently deleted project skills and agents are kept for 7 days before automatic cleanup'
           : 'Recently deleted skills and agents are kept for 7 days before automatic cleanup'}
+        className="mb-4!"
         actions={
           <>
             <Button onClick={handleRefresh} variant="secondary" size="sm">
               <RefreshCw size={16} /> Refresh
             </Button>
-            {items.length > 0 && (
+            {allItems.length > 0 && (
               <Button variant="danger" size="sm" onClick={() => setEmptyOpen(true)}>
                 <Trash2 size={16} strokeWidth={2.5} /> Empty Trash
               </Button>
@@ -139,6 +154,39 @@ export default function TrashPage() {
           </>
         }
       />
+
+      {/* Resource type tabs (Skills / Agents) */}
+      <nav className="ss-resource-tabs flex items-center gap-6 border-b-2 border-muted -mx-4 px-4 md:-mx-8 md:px-8" role="tablist">
+        {([
+          { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: skillCount },
+          { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: agentCount },
+        ]).map((tab) => (
+          <button
+            key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`
+              ss-resource-tab
+              inline-flex items-center gap-1.5 px-1 pb-2.5 text-sm font-semibold cursor-pointer
+              transition-all duration-150 border-b-[3px] -mb-[2px]
+              ${activeTab === tab.key
+                ? 'border-pencil text-pencil'
+                : 'border-transparent text-pencil-light hover:text-pencil hover:border-muted-dark'
+              }
+            `}
+          >
+            {tab.icon}
+            {tab.label}
+            <span className={`
+              text-[11px] font-medium px-1.5 py-0.5 rounded-[var(--radius-sm)]
+              ${activeTab === tab.key ? 'bg-pencil/10 text-pencil' : 'bg-muted text-pencil-light'}
+            `}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </nav>
 
       {/* Summary line */}
       {items.length > 0 && (
@@ -152,8 +200,10 @@ export default function TrashPage() {
       {items.length === 0 ? (
         <EmptyState
           icon={Trash2}
-          title="Trash is empty"
-          description="Deleted skills and agents will appear here for 7 days"
+          title={activeTab === 'agents' ? 'No agents in trash' : 'No skills in trash'}
+          description={activeTab === 'agents'
+            ? 'Deleted agents will appear here for 7 days'
+            : 'Deleted skills will appear here for 7 days'}
         />
       ) : (
         <div className="space-y-4">
