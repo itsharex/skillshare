@@ -86,7 +86,8 @@ Push skills from source to all targets.
 
 ```bash
 skillshare sync              # Sync skills to all targets
-skillshare sync --all        # Sync skills + extras
+skillshare sync agents       # Sync agents only
+skillshare sync --all        # Sync skills + agents + extras
 skillshare sync --dry-run    # Preview changes
 skillshare sync -n           # Short form
 skillshare sync --force      # Overwrite all managed skills
@@ -95,7 +96,7 @@ skillshare sync -f           # Short form
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--all` | | Also sync extras after skills (see [sync extras](#sync-extras) below) |
+| `--all` | | Also sync agents and extras after skills |
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite all managed entries regardless of checksum (copy mode) or replace existing directories with symlinks (merge mode) |
 | `--json` | | Output as JSON |
@@ -481,11 +482,12 @@ flowchart TD
 
 ## Agent Sync {#agent-sync}
 
-`skillshare sync` automatically syncs agents alongside skills to targets that support agents. You can also sync agents independently:
+Agents are synced separately from skills. Use `sync agents` for agent-only sync, or `sync --all` to sync everything:
 
 ```bash
-skillshare sync              # Sync skills + agents to all targets
-skillshare sync agents       # Sync only agents
+skillshare sync              # Sync skills only (default)
+skillshare sync agents       # Sync agents only
+skillshare sync --all        # Sync skills + agents + extras
 ```
 
 Agent sync supports all three modes (merge, copy, symlink), matching the target's configured mode. Only targets with an `agents` path definition receive agent syncs — currently Claude, Cursor, OpenCode, and Augment. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.

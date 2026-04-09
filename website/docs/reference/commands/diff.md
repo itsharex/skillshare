@@ -9,9 +9,9 @@ Show differences between source and targets.
 ```bash
 skillshare diff              # All targets (interactive TUI)
 skillshare diff claude       # Specific target
+skillshare diff agents       # Agent targets only
 skillshare diff --stat       # File-level changes
 skillshare diff --patch      # Full unified diff
-skillshare diff              # Includes extras automatically
 ```
 
 ![diff demo](/img/diff-demo.png)
@@ -183,6 +183,20 @@ skillshare status          # Shows "needs sync"
 skillshare diff claude     # See exactly what's different
 skillshare sync            # Fix it
 ```
+
+## Agent Diff {#agent-diff}
+
+Use the `agents` keyword to diff only agent targets:
+
+```bash
+skillshare diff agents             # All agent-capable targets
+skillshare diff agents claude      # Specific target
+skillshare diff agents --json      # JSON output
+```
+
+Agent diff shows missing agents (need sync), orphan symlinks (need prune), and local-only agent files. Only targets with an `agents` path configuration are included. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
+
+---
 
 ## Options
 
