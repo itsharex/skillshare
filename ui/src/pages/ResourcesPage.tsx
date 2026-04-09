@@ -1325,14 +1325,14 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
             ? <ChevronRight size={14} strokeWidth={2.5} className="text-pencil-light shrink-0" />
             : <ChevronDown size={14} strokeWidth={2.5} className="text-pencil-light shrink-0" />
           }
-          {isFolderCollapsed
-            ? <Folder size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
-            : <FolderOpen size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
+          {node.name.startsWith('_')
+            ? <GitBranch size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
+            : isFolderCollapsed
+              ? <Folder size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
+              : <FolderOpen size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
           }
           <span className={`font-bold text-pencil shrink-0${node.isRoot ? ' text-pencil-light font-semibold' : ''}`}>
-            {node.name.startsWith('_') ? (
-              <span className="inline-flex items-center gap-1.5"><GitBranch size={14} strokeWidth={2.5} className="text-pencil-light" />{formatTrackedRepoName(node.name)}</span>
-            ) : formatSkillDisplayName(node.name)}
+            {node.name.startsWith('_') ? formatTrackedRepoName(node.name) : formatSkillDisplayName(node.name)}
           </span>
           <span
             className="text-[11px] text-pencil-light px-1.5 py-0 bg-muted shrink-0 ml-1.5"
@@ -1493,11 +1493,14 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
               window.scrollBy({ top: offset, behavior: 'smooth' });
             }}
           >
-            <FolderOpen size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+            {stickyFolder.node.path?.startsWith('_')
+              ? <GitBranch size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+              : <FolderOpen size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+            }
             <span className={`font-semibold text-sm${stickyFolder.node.isRoot ? ' text-pencil-light' : ' text-pencil'}`}>
               {stickyFolder.node.path
                 ? (stickyFolder.node.path.startsWith('_')
-                    ? <span className="inline-flex items-center gap-1.5"><GitBranch size={14} strokeWidth={2.5} className="text-pencil-light" />{formatTrackedRepoName(stickyFolder.node.path)}</span>
+                    ? formatTrackedRepoName(stickyFolder.node.path)
                     : formatSkillDisplayName(stickyFolder.node.path))
                 : '(root)'}
             </span>
