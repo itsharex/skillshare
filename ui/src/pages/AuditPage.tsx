@@ -14,6 +14,7 @@ import {
   Puzzle,
   Bot,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { AuditAllResponse, AuditResult, AuditFinding } from '../api/client';
 import Card from '../components/Card';
@@ -29,6 +30,7 @@ import { severityBadgeVariant } from '../lib/severity';
 import { BlockStamp, RiskMeter, riskColor, riskBgColor } from '../components/audit';
 import ScrollToTop from '../components/ScrollToTop';
 import KindBadge from '../components/KindBadge';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 
 type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 type AuditKind = 'skills' | 'agents';
@@ -43,18 +45,28 @@ const severityFilterOptions: { value: SeverityFilter; label: string }[] = [
 
 export default function AuditPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [activeKind, setActiveKind] = useState<AuditKind>('skills');
-  const [dataCache, setDataCache] = useState<Record<AuditKind, AuditAllResponse | null>>({
-    skills: null,
-    agents: null,
-  });
-  const data = dataCache[activeKind];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [minSeverity, setMinSeverity] = useState<SeverityFilter>('MEDIUM');
   const [progress, setProgress] = useState<{ scanned: number; total: number } | null>(null);
   const esRef = useRef<EventSource | null>(null);
   const startTimeRef = useRef<number>(0);
+  // Bump to trigger re-render after writing to query cache
+  const [, setCacheTick] = useState(0);
+
+  // Read cached audit results per kind from React Query cache.
+  // Cache survives page navigation; stale after staleTimes.audit (5min).
+  const getCached = (kind: AuditKind): AuditAllResponse | null => {
+    const state = queryClient.getQueryState(queryKeys.audit.all(kind));
+    if (!state || state.dataUpdatedAt === 0) return null;
+    // Respect stale time — don't show data older than threshold
+    if (Date.now() - state.dataUpdatedAt > staleTimes.audit) return null;
+    return queryClient.getQueryData<AuditAllResponse>(queryKeys.audit.all(kind)) ?? null;
+  };
+  const dataCache = { skills: getCached('skills'), agents: getCached('agents') };
+  const data = dataCache[activeKind];
 
   // Clean up EventSource on unmount
   useEffect(() => {
@@ -113,7 +125,8 @@ export default function AuditPage() {
       (total) => setProgress({ scanned: 0, total }),
       (scanned) => setProgress((p) => p ? { ...p, scanned } : null),
       (res) => {
-        setDataCache((prev) => ({ ...prev, [activeKind]: res }));
+        queryClient.setQueryData(queryKeys.audit.all(activeKind), res);
+        setCacheTick((n) => n + 1);
         setLoading(false);
         setProgress(null);
         showAuditToast(res);
