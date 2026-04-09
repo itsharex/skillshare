@@ -71,7 +71,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 	donePayload := map[string]any{"diffs": diffs}
 	maps.Copy(donePayload, ignorePayload(ignoreStats))
-	maps.Copy(donePayload, agentIgnorePayload(agentsSource))
+	maps.Copy(donePayload, agentIgnorePayload(agentsSource, nil))
 	safeSend("done", donePayload)
 }
 

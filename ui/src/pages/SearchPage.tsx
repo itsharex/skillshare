@@ -16,6 +16,7 @@ import { useToast } from '../components/Toast';
 import { api, type SearchResult, type DiscoveredSkill } from '../api/client';
 import { clearAuditCache } from '../lib/auditCache';
 import { queryKeys } from '../lib/queryKeys';
+import { formatSkillDisplayName } from '../lib/resourceNames';
 
 type SearchMode = 'github' | 'hub';
 type SearchViewType = 'card' | 'table';
@@ -191,13 +192,13 @@ export default function SearchPage() {
             if (item.error) {
               if (item.error.includes('security audit failed')) {
                 hasAuditBlock = true;
-                batchErrors.push(`${item.name.replace(/__/g, '/')}: blocked by security audit`);
+                batchErrors.push(`${formatSkillDisplayName(item.name)}: blocked by security audit`);
               } else {
-                batchErrors.push(`${item.name.replace(/__/g, '/')}: ${item.error}`);
+                batchErrors.push(`${formatSkillDisplayName(item.name)}: ${item.error}`);
               }
             }
             if (item.warnings?.length) {
-              item.warnings.forEach((w) => toast(`${item.name.replace(/__/g, '/')}: ${w}`, 'warning'));
+              item.warnings.forEach((w) => toast(`${formatSkillDisplayName(item.name)}: ${w}`, 'warning'));
             }
           }
           if (batchErrors.length > 0) toast(`${batchErrors.length} failed: ${batchErrors.join('; ')}`, 'error');
@@ -221,13 +222,13 @@ export default function SearchPage() {
           if (item.error) {
             if (item.error.includes('security audit failed')) {
               hasAuditBlock = true;
-              batchErrors.push(`${item.name.replace(/__/g, '/')}: blocked by security audit`);
+              batchErrors.push(`${formatSkillDisplayName(item.name)}: blocked by security audit`);
             } else {
-              batchErrors.push(`${item.name.replace(/__/g, '/')}: ${item.error}`);
+              batchErrors.push(`${formatSkillDisplayName(item.name)}: ${item.error}`);
             }
           }
           if (item.warnings?.length) {
-            item.warnings.forEach((w) => toast(`${item.name.replace(/__/g, '/')}: ${w}`, 'warning'));
+            item.warnings.forEach((w) => toast(`${formatSkillDisplayName(item.name)}: ${w}`, 'warning'));
           }
         }
         if (batchErrors.length > 0) toast(`${batchErrors.length} failed: ${batchErrors.join('; ')}`, 'error');
@@ -268,13 +269,13 @@ export default function SearchPage() {
         if (item.error) {
           if (item.error.includes('security audit failed')) {
             hasAuditBlock = true;
-            batchErrors.push(`${item.name.replace(/__/g, '/')}: blocked by security audit — use Force to override`);
+            batchErrors.push(`${formatSkillDisplayName(item.name)}: blocked by security audit — use Force to override`);
           } else {
-            batchErrors.push(`${item.name.replace(/__/g, '/')}: ${item.error}`);
+            batchErrors.push(`${formatSkillDisplayName(item.name)}: ${item.error}`);
           }
         }
         if (item.warnings?.length) {
-          item.warnings.forEach((w) => toast(`${item.name.replace(/__/g, '/')}: ${w}`, 'warning'));
+          item.warnings.forEach((w) => toast(`${formatSkillDisplayName(item.name)}: ${w}`, 'warning'));
         }
       }
       if (batchErrors.length > 0) toast(`${batchErrors.length} failed: ${batchErrors.join('; ')}`, 'error');

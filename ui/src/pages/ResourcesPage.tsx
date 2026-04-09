@@ -50,6 +50,7 @@ import { radius } from '../design';
 import ScrollToTop from '../components/ScrollToTop';
 import Tooltip from '../components/Tooltip';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
+import { formatSkillDisplayName, formatAgentDisplayName, formatTrackedRepoName } from '../lib/resourceNames';
 import { useToast } from '../components/Toast';
 import TargetMenu, { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -150,7 +151,7 @@ function useResourceActions() {
       return { previous };
     },
     onSuccess: (_, { name, kind, disable }) => {
-      const display = name.replace(/__/g, '/').replace(/\.md$/, '');
+      const display = formatAgentDisplayName(name);
       toast(`${resourceLabel(kind, true)} ${display} ${disable ? 'disabled' : 'enabled'}`, 'success');
     },
     onError: (err: Error, _, ctx) => {
@@ -170,7 +171,7 @@ function useResourceActions() {
     },
     onSuccess: (_, { name, kind }) => {
       clearAuditCache(queryClient);
-      const display = name.replace(/__/g, '/').replace(/\.md$/, '');
+      const display = formatAgentDisplayName(name);
       toast(`Uninstalled ${resourceLabel(kind)} ${display}`, 'success');
     },
     onError: (err: Error, _, ctx) => {
@@ -191,7 +192,7 @@ function useResourceActions() {
     },
     onSuccess: (_, repoName) => {
       clearAuditCache(queryClient);
-      const display = repoName.replace(/^_/, '').replace(/__/g, '/');
+      const display = formatTrackedRepoName(repoName);
       toast(`Uninstalled repo ${display}`, 'success');
     },
     onError: (err: Error, _, ctx) => {
@@ -215,7 +216,7 @@ function useResourceActions() {
       return { previous };
     },
     onSuccess: (_, { name, target }) => {
-      const display = name.replace(/__/g, '/').replace(/\.md$/, '');
+      const display = formatAgentDisplayName(name);
       toast(`${display} now available in ${target ?? 'All'}`, 'success');
     },
     onError: (err: Error, _, ctx) => {
@@ -626,7 +627,7 @@ const SkillPostit = memo(function SkillPostit({
 }) {
   // Extract repo name from relPath (e.g., "_awesome-skillshare-skills/frontend-dugong" -> "awesome-skillshare-skills")
   const repoName = skill.isInRepo && skill.relPath.startsWith('_')
-    ? skill.relPath.split('/')[0].slice(1).replace(/__/g, '/')
+    ? formatTrackedRepoName(skill.relPath.split('/')[0])
     : undefined;
 
   // Color key: tracked skills from the same repo share a color
@@ -665,7 +666,7 @@ const SkillPostit = memo(function SkillPostit({
         {/* Org banner (tracked only) */}
         {skill.isInRepo && repoName && (
           <div className="flex items-center gap-1 mb-2">
-            <Badge variant="default" className="text-[10px] font-semibold shrink-0">Track</Badge>
+            <Badge variant="default" size="sm">Track</Badge>
             <span className="text-xs text-pencil-light truncate">{repoName}</span>
           </div>
         )}
@@ -674,7 +675,7 @@ const SkillPostit = memo(function SkillPostit({
         <p
           className="font-mono text-sm text-pencil-light truncate mb-2"
         >
-          {skill.relPath.replace(/__/g, '/')}
+          {formatSkillDisplayName(skill.relPath)}
         </p>
 
         {/* Bottom row */}
@@ -1324,8 +1325,8 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
           }
           <span className={`font-bold text-pencil shrink-0${node.isRoot ? ' text-pencil-light font-semibold' : ''}`}>
             {node.name.startsWith('_') ? (
-              <><Badge variant="default" className="mr-1.5 text-[10px] font-semibold">Track</Badge>{node.name.slice(1).replace(/__/g, '/')}</>
-            ) : node.name.replace(/__/g, '/')}
+              <span className="inline-flex items-center gap-1.5"><Badge variant="default" size="sm">Track</Badge>{formatTrackedRepoName(node.name)}</span>
+            ) : formatSkillDisplayName(node.name)}
           </span>
           <span
             className="text-[11px] text-pencil-light px-1.5 py-0 bg-muted shrink-0 ml-1.5"

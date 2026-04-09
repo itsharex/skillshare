@@ -28,6 +28,7 @@ import { BlockStamp, RiskMeter } from '../components/audit';
 import { severityBadgeVariant } from '../lib/severity';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
 import { clearAuditCache } from '../lib/auditCache';
+import { formatSkillDisplayName, formatTrackedRepoName } from '../lib/resourceNames';
 
 const FileViewerModal = lazy(() => import('../components/FileViewerModal'));
 
@@ -288,7 +289,7 @@ export default function SkillDetailPage() {
       if (resource.isInRepo) {
         const repoName = resource.relPath.split('/')[0];
         await api.deleteRepo(repoName);
-        toast(`Repository "${repoName}" uninstalled.`, 'success');
+        toast(`Repository "${formatTrackedRepoName(repoName)}" uninstalled.`, 'success');
       } else {
         await api.deleteResource(resource.flatName, resource.kind);
         toast(`${resource.kind === 'agent' ? 'Agent' : 'Skill'} "${resource.name}" uninstalled.`, 'success');
@@ -320,13 +321,13 @@ export default function SkillDetailPage() {
         const auditInfo = item.auditRiskLabel
           ? ` · Security: ${item.auditRiskLabel.toUpperCase()}${item.auditRiskScore ? ` (${item.auditRiskScore}/100)` : ''}`
           : '';
-        toast(`Updated: ${item.name} — ${item.message}${auditInfo}`, 'success');
+        toast(`Updated: ${formatSkillDisplayName(item.name)} — ${item.message}${auditInfo}`, 'success');
         clearAuditCache(queryClient);
         await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
         await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
         await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       } else if (item?.action === 'up-to-date') {
-        toast(`${item.name} is already up to date.`, 'info');
+        toast(`${formatSkillDisplayName(item.name)} is already up to date.`, 'info');
       } else if (item?.action === 'blocked') {
         setBlockedMessage(item.message ?? 'Blocked by security audit — HIGH/CRITICAL findings detected');
       } else if (item?.action === 'error') {

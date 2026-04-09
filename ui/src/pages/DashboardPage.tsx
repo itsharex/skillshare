@@ -35,6 +35,7 @@ import { api } from '../api/client';
 import type { Target as TargetType, CheckResult, AuditAllResponse, Extra } from '../api/client';
 import { radius, shadows } from '../design';
 import { clearAuditCache } from '../lib/auditCache';
+import { formatSkillDisplayName } from '../lib/resourceNames';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
@@ -86,8 +87,13 @@ export default function DashboardPage() {
         if (blocked.length > 0) parts.push(`${blocked.length} blocked`);
         toast(`Update complete: ${parts.join(', ')}.`, blocked.length > 0 ? 'warning' : updated > 0 ? 'success' : 'info');
       }
-      blocked.forEach((r) => toast(`${r.name}: ${r.message}`, 'error'));
-      errors.forEach((r) => toast(`${r.name}: ${r.message}`, 'error'));
+      const allUpdateErrors = [
+        ...blocked.map((r) => `${formatSkillDisplayName(r.name)}: ${r.message}`),
+        ...errors.map((r) => `${formatSkillDisplayName(r.name)}: ${r.message}`),
+      ];
+      if (allUpdateErrors.length > 0) {
+        toast(`${allUpdateErrors.length} issue${allUpdateErrors.length !== 1 ? 's' : ''}: ${allUpdateErrors.join('; ')}`, 'error');
+      }
       await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     } catch (e: unknown) {

@@ -32,6 +32,7 @@ import DialogShell from '../components/DialogShell';
 import { Input, Select } from '../components/Input';
 import { Checkbox } from '../components/Checkbox';
 import { useToast } from '../components/Toast';
+import { formatSkillDisplayName } from '../lib/resourceNames';
 import { PageSkeleton } from '../components/Skeleton';
 import { Virtuoso } from 'react-virtuoso';
 import { radius } from '../design';
@@ -77,9 +78,7 @@ const typeFilterOptions: { key: FilterType; label: string; icon: React.ReactNode
 
 
 /** Convert flat name (a__b__c) to path display (a/b/c) */
-function displayPath(flatName: string): string {
-  return flatName.replace(/__/g, '/');
-}
+const displayPath = formatSkillDisplayName;
 
 /* ── Component ──────────────────────────────────────── */
 

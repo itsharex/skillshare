@@ -250,7 +250,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		"warnings": warnings,
 	}
 	maps.Copy(resp, ignorePayload(ignoreStats))
-	maps.Copy(resp, agentIgnorePayload(s.agentsSource()))
+	maps.Copy(resp, agentIgnorePayload(s.agentsSource(), nil))
 	writeJSON(w, resp)
 }
 
@@ -301,6 +301,6 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 
 	resp := map[string]any{"diffs": diffs}
 	maps.Copy(resp, ignorePayload(ignoreStats))
-	maps.Copy(resp, agentIgnorePayload(agentsSource))
+	maps.Copy(resp, agentIgnorePayload(agentsSource, nil))
 	writeJSON(w, resp)
 }

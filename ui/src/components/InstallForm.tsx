@@ -12,6 +12,7 @@ import { api, type InstallResult, type DiscoveredSkill, type DiscoveredAgent } f
 import { queryKeys } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
 import { radius } from '../design';
+import { formatSkillDisplayName } from '../lib/resourceNames';
 
 interface InstallFormProps {
   /** Called after a successful install with the result */
@@ -207,7 +208,7 @@ export default function InstallForm({
         const allWarnings: string[] = [];
         const allErrors: string[] = [];
         for (const item of res.results) {
-          if (item.error) allErrors.push(`${item.name.replace(/__/g, '/')}: ${item.error}`);
+          if (item.error) allErrors.push(`${formatSkillDisplayName(item.name)}: ${item.error}`);
           if (item.warnings?.length) allWarnings.push(...item.warnings.map((w) => `${item.name}: ${w}`));
         }
         if (allErrors.length > 0) {
@@ -321,7 +322,7 @@ export default function InstallForm({
               const skill = disc.skills.find((s) => s.name === item.name);
               if (skill) auditBlockedSkills.push(skill);
             } else {
-              allErrors.push(`${item.name.replace(/__/g, '/')}: ${item.error}`);
+              allErrors.push(`${formatSkillDisplayName(item.name)}: ${item.error}`);
             }
           } else {
             installed++;
@@ -390,7 +391,7 @@ export default function InstallForm({
             const skill = selected.find((s) => s.name === item.name);
             if (skill) auditBlockedSkills.push(skill);
           } else {
-            allErrors.push(`${item.name.replace(/__/g, '/')}: ${item.error}`);
+            allErrors.push(`${formatSkillDisplayName(item.name)}: ${item.error}`);
           }
         } else {
           installed++;

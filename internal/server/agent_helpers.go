@@ -15,18 +15,24 @@ const (
 	kindAgent = "agent"
 )
 
-// discoverActiveAgents discovers agents from the given source directory,
-// returning only non-disabled agents. Returns nil if source is empty.
-func discoverActiveAgents(agentsSource string) []resource.DiscoveredResource {
+// discoverAllAgents discovers all agents (including disabled) from the source directory.
+func discoverAllAgents(agentsSource string) []resource.DiscoveredResource {
 	if agentsSource == "" {
 		return nil
 	}
 	discovered, _ := resource.AgentKind{}.Discover(agentsSource)
-	return resource.ActiveAgents(discovered)
+	return discovered
+}
+
+// discoverActiveAgents discovers agents from the given source directory,
+// returning only non-disabled agents. Returns nil if source is empty.
+func discoverActiveAgents(agentsSource string) []resource.DiscoveredResource {
+	return resource.ActiveAgents(discoverAllAgents(agentsSource))
 }
 
 // agentIgnorePayload returns JSON-serialisable fields describing .agentignore state.
-func agentIgnorePayload(agentsSource string) map[string]any {
+// Pass pre-discovered agents to avoid duplicate filesystem traversal; nil triggers discovery.
+func agentIgnorePayload(agentsSource string, all []resource.DiscoveredResource) map[string]any {
 	root := ""
 	ignoredNames := []string{}
 	if agentsSource != "" {
@@ -35,7 +41,9 @@ func agentIgnorePayload(agentsSource string) map[string]any {
 		if _, err := os.Stat(ignoreFile); err == nil {
 			root = ignoreFile
 		}
-		all, _ := resource.AgentKind{}.Discover(agentsSource)
+		if all == nil {
+			all = discoverAllAgents(agentsSource)
+		}
 		for _, a := range all {
 			if a.Disabled {
 				ignoredNames = append(ignoredNames, a.RelPath)
