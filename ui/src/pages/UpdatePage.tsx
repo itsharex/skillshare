@@ -124,7 +124,6 @@ export default function UpdatePage() {
   const [checkStatuses, setCheckStatuses] = useState<Map<string, CheckItemStatus>>(new Map());
   const [checking, setChecking] = useState(false);
   const [checkMode, setCheckMode] = useState<'all' | 'selected' | null>(null);
-  const [checkProgress, setCheckProgress] = useState<{ checked: number; total: number } | null>(null);
   const esRef = useRef<EventSource | null>(null);
   const startTimeRef = useRef<number>(0);
 
@@ -200,7 +199,6 @@ export default function UpdatePage() {
     esRef.current?.close();
     setChecking(true);
     setCheckMode(filterNames ? 'selected' : 'all');
-    setCheckProgress(null);
     startTimeRef.current = Date.now();
 
     // Mark items as checking. "Check All" marks every item (across both tabs)
@@ -216,14 +214,13 @@ export default function UpdatePage() {
     });
 
     esRef.current = api.checkStream(
-      () => setCheckProgress({ checked: 0, total: 0 }),
-      (total) => setCheckProgress({ checked: 0, total }),
-      (checked) => setCheckProgress((p) => p ? { ...p, checked } : null),
+      () => {},
+      () => {},
+      () => {},
       (result) => {
         applyCheckResult(result, filterNames);
         setChecking(false);
         setCheckMode(null);
-        setCheckProgress(null);
       },
       (err) => {
         toast(err.message, 'error');
@@ -239,7 +236,6 @@ export default function UpdatePage() {
         });
         setChecking(false);
         setCheckMode(null);
-        setCheckProgress(null);
       },
     );
   }, [allUpdatableItems, applyCheckResult, toast]);
@@ -538,19 +534,6 @@ export default function UpdatePage() {
             </>
           }
         />
-
-        {/* Check progress bar */}
-        {checking && (
-          <StreamProgressBar
-            count={checkProgress?.checked ?? 0}
-            total={checkProgress?.total ?? 0}
-            startTime={startTimeRef.current}
-            icon={RefreshCw}
-            labelDiscovering="Discovering skills..."
-            labelRunning="Checking for updates..."
-            units="sources"
-          />
-        )}
 
         {allUpdatableItems.length === 0 ? (
           <EmptyState
