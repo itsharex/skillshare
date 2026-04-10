@@ -101,16 +101,20 @@ func promptOrchestratorSelection(rootSkill install.SkillInfo, childSkills []inst
 		return nil, nil
 	}
 
+	// Build the full skill list (root first, then children) — used for both
+	// "entire pack" and individual selection so the root skill remains a
+	// selectable option in the multi-select UI (issue #124).
+	allSkills := make([]install.SkillInfo, 0, len(childSkills)+1)
+	allSkills = append(allSkills, rootSkill)
+	allSkills = append(allSkills, childSkills...)
+
 	// If "entire pack" selected, return all skills
 	if indices[0] == 0 {
-		allSkills := make([]install.SkillInfo, 0, len(childSkills)+1)
-		allSkills = append(allSkills, rootSkill)
-		allSkills = append(allSkills, childSkills...)
 		return allSkills, nil
 	}
 
-	// Stage 2: Select individual skills (children only, no root)
-	return promptMultiSelect(childSkills)
+	// Stage 2: Select individual skills (root + children)
+	return promptMultiSelect(allSkills)
 }
 
 // promptLargeRepoSelection presents a TUI directory picker for large repos.
