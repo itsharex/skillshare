@@ -239,7 +239,9 @@ func parseGitHub(matches []string, source *Source) (*Source, error) {
 	return source, nil
 }
 
-// stripGitHubBranchPrefix removes tree/{branch}/ or blob/{branch}/ from GitHub web URLs
+// stripGitHubBranchPrefix removes tree/{branch}/ or blob/{branch}/ from GitHub web URLs.
+// When a blob/ URL points directly at a SKILL.md file, the containing directory is
+// used instead so the resulting subdir represents a skill (not a literal file name).
 func stripGitHubBranchPrefix(subdir string) string {
 	if subdir == "" {
 		return ""
@@ -251,14 +253,32 @@ func stripGitHubBranchPrefix(subdir string) string {
 		// parts[0] = "tree" or "blob"
 		// parts[1] = branch name (e.g., "main", "master", "v1.0")
 		// parts[2] = actual path (if exists)
+		isBlob := parts[0] == "blob"
 		if len(parts) == 3 {
-			return parts[2]
+			return trimSkillFileSuffix(parts[2], isBlob)
 		}
 		// Only tree/branch, no actual subdir
 		return ""
 	}
 
 	return subdir
+}
+
+// trimSkillFileSuffix strips a trailing SKILL.md segment from a blob URL path so
+// the resulting subdir is the containing directory of the skill. Non-blob URLs
+// and paths that do not end in SKILL.md are returned unchanged.
+func trimSkillFileSuffix(path string, isBlob bool) string {
+	if !isBlob {
+		return path
+	}
+	if !strings.EqualFold(filepath.Base(path), "SKILL.md") {
+		return path
+	}
+	parent := filepath.ToSlash(filepath.Dir(path))
+	if parent == "." {
+		return ""
+	}
+	return parent
 }
 
 func parseGitSSH(matches []string, source *Source) (*Source, error) {
@@ -427,10 +447,11 @@ func stripGitBranchPrefix(host, subdir string) string {
 	subdir = strings.TrimRight(subdir, "/")
 	parts := strings.SplitN(subdir, "/", 3)
 
-	// Bitbucket: src/{branch}/path
+	// Bitbucket: src/{branch}/path — there is no separate blob marker, so we
+	// best-effort treat a trailing SKILL.md the same as a blob URL.
 	if strings.Contains(host, "bitbucket") && len(parts) >= 2 && parts[0] == "src" {
 		if len(parts) == 3 {
-			return parts[2]
+			return trimSkillFileSuffix(parts[2], true)
 		}
 		return ""
 	}
@@ -439,6 +460,7 @@ func stripGitBranchPrefix(host, subdir string) string {
 	if parts[0] == "-" && len(parts) >= 2 {
 		rest := strings.SplitN(parts[1], "/", 2)
 		if rest[0] == "tree" || rest[0] == "blob" {
+			isBlob := rest[0] == "blob"
 			// subdir is "-/tree/{branch}/path" or "-/blob/{branch}/path"
 			// After SplitN(subdir, "/", 3): parts = ["-", "tree", "{branch}/path"]
 			// Need to further split parts[2] to get past branch
@@ -446,7 +468,7 @@ func stripGitBranchPrefix(host, subdir string) string {
 				inner := strings.SplitN(parts[2], "/", 2)
 				// inner[0] = branch, inner[1] = actual path
 				if len(inner) == 2 {
-					return inner[1]
+					return trimSkillFileSuffix(inner[1], isBlob)
 				}
 			}
 			return ""

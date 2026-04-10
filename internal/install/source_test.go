@@ -131,6 +131,29 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantSubdir:   "",
 			wantName:     "repo",
 		},
+		// issue #124: blob URLs pointing directly at SKILL.md should resolve
+		// to the containing skill directory instead of a literal "SKILL.md" name.
+		{
+			name:         "github blob URL at root SKILL.md",
+			input:        "https://github.com/iOfficeAI/OfficeCLI/blob/main/SKILL.md",
+			wantCloneURL: "https://github.com/iOfficeAI/OfficeCLI.git",
+			wantSubdir:   "",
+			wantName:     "OfficeCLI",
+		},
+		{
+			name:         "github blob URL at nested SKILL.md",
+			input:        "https://github.com/user/repo/blob/main/skills/foo/SKILL.md",
+			wantCloneURL: "https://github.com/user/repo.git",
+			wantSubdir:   "skills/foo",
+			wantName:     "foo",
+		},
+		{
+			name:         "github blob URL at SKILL.md lowercase (case-insensitive)",
+			input:        "https://github.com/user/repo/blob/main/skill.md",
+			wantCloneURL: "https://github.com/user/repo.git",
+			wantSubdir:   "",
+			wantName:     "repo",
+		},
 	}
 
 	for _, tt := range tests {
@@ -305,6 +328,29 @@ func TestParseSource_GitHTTPS(t *testing.T) {
 			input:        "https://gitlab.com/user/repo/-/tree/main",
 			wantCloneURL: "https://gitlab.com/user/repo.git",
 			wantName:     "repo",
+		},
+		// issue #124: blob URLs pointing directly at SKILL.md should resolve
+		// to the containing skill directory instead of a literal "SKILL.md" name.
+		{
+			name:         "gitlab blob URL at root SKILL.md",
+			input:        "https://gitlab.com/user/repo/-/blob/main/SKILL.md",
+			wantCloneURL: "https://gitlab.com/user/repo.git",
+			wantSubdir:   "",
+			wantName:     "repo",
+		},
+		{
+			name:         "gitlab blob URL at nested SKILL.md",
+			input:        "https://gitlab.com/user/repo/-/blob/main/skills/foo/SKILL.md",
+			wantCloneURL: "https://gitlab.com/user/repo.git",
+			wantSubdir:   "skills/foo",
+			wantName:     "foo",
+		},
+		{
+			name:         "bitbucket src URL at nested SKILL.md",
+			input:        "https://bitbucket.org/team/repo/src/main/skills/foo/SKILL.md",
+			wantCloneURL: "https://bitbucket.org/team/repo.git",
+			wantSubdir:   "skills/foo",
+			wantName:     "foo",
 		},
 	}
 
