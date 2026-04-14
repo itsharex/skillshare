@@ -237,6 +237,11 @@ export default function BatchUninstallPage() {
     for (const flatName of selected) {
       const skill = skillByFlatName.get(flatName);
       if (!skill) continue;
+      // Agents don't support repo-level uninstall — send individual names
+      if (activeTab === 'agents') {
+        names.add(skill.flatName);
+        continue;
+      }
       const repo = getRepoName(skill);
       if (repo && !processedRepos.has(repo)) {
         processedRepos.add(repo);
@@ -246,7 +251,7 @@ export default function BatchUninstallPage() {
       }
     }
     return Array.from(names);
-  }, [selected, skillByFlatName, getRepoName]);
+  }, [selected, skillByFlatName, getRepoName, activeTab]);
 
   const hasRepoWarning = useMemo(() => {
     for (const flatName of selected) {

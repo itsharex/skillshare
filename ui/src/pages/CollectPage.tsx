@@ -31,11 +31,18 @@ import KindBadge from '../components/KindBadge';
 import SegmentedControl from '../components/SegmentedControl';
 
 type Phase = 'idle' | 'scanning' | 'scanned' | 'collecting' | 'done';
+type CollectScope = 'skill' | 'agent' | 'both';
+
+function parseCollectScope(value: string | null): CollectScope | null {
+  if (value === 'skill' || value === 'agent' || value === 'both') return value;
+  return null;
+}
 
 export default function CollectPage() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const presetTarget = searchParams.get('target') ?? undefined;
+  const presetScope = parseCollectScope(searchParams.get('scope'));
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [force, setForce] = useState(false);
@@ -45,7 +52,7 @@ export default function CollectPage() {
   const [result, setResult] = useState<CollectResult | null>(null);
   const [confirming, setConfirming] = useState(false);
   const { toast } = useToast();
-  const [scope, setScope] = useState<'skill' | 'agent' | 'both'>('skill');
+  const [scope, setScope] = useState<CollectScope>(presetScope ?? 'skill');
 
   const scopeLabels = {
     skill: { noun: 'skill', nounPlural: 'skills', scanBtn: 'Scan for Local Skills', entity: 'Skills' },
@@ -63,19 +70,26 @@ export default function CollectPage() {
     setResult(null);
   }, [scope]);
 
+  useEffect(() => {
+    if (presetScope && presetScope !== scope) {
+      setScope(presetScope);
+    }
+  }, [presetScope, scope]);
+
   // Auto-scan when target query param is present
   useEffect(() => {
     if (presetTarget) {
-      handleScan(presetTarget);
+      handleScan(presetTarget, presetScope ?? scope);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presetTarget]);
+  }, [presetTarget, presetScope]);
 
-  const handleScan = async (targetFilter?: string) => {
+  const handleScan = async (targetFilter?: string, scopeOverride?: CollectScope) => {
+    const activeScope = scopeOverride ?? scope;
     setPhase('scanning');
     setResult(null);
     try {
-      const res = await api.collectScan(targetFilter, scope === 'both' ? undefined : scope);
+      const res = await api.collectScan(targetFilter, activeScope === 'both' ? undefined : activeScope);
       setScanTargets(res.targets);
       setTotalCount(res.totalCount);
       // Auto-select all
@@ -112,6 +126,8 @@ export default function CollectPage() {
       setPhase('done');
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
       setPhase('scanned');

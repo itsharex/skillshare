@@ -22,6 +22,7 @@ type AgentSummary struct {
 	Include       []string
 	Exclude       []string
 	ManagedCount  int
+	LocalCount    int
 	ExpectedCount int
 }
 
@@ -123,6 +124,7 @@ func (b *Builder) buildSummary(path, displayPath, mode string, include, exclude 
 		summary.ExpectedCount = len(expectedAgents)
 	}
 	summary.ManagedCount = countManagedAgents(path, mode, b.sourcePath, summary.ExpectedCount)
+	summary.LocalCount = countLocalAgents(path, b.sourcePath)
 
 	return summary, nil
 }
@@ -165,6 +167,18 @@ func countHealthyAgentLinks(dir string) int {
 	}
 
 	return linked
+}
+
+func countLocalAgents(targetPath, sourcePath string) int {
+	if targetPath == "" {
+		return 0
+	}
+
+	localAgents, err := ssync.FindLocalAgents(targetPath, sourcePath)
+	if err != nil {
+		return 0
+	}
+	return len(localAgents)
 }
 
 func dirExists(path string) bool {

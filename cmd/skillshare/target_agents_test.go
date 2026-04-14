@@ -115,8 +115,54 @@ func TestTargetListJSON_IncludesAgentMetadata(t *testing.T) {
 	if target.AgentLinkedCount == nil || *target.AgentLinkedCount != 1 {
 		t.Fatalf("agent linked = %v, want 1", target.AgentLinkedCount)
 	}
+	if target.AgentLocalCount == nil || *target.AgentLocalCount != 0 {
+		t.Fatalf("agent local = %v, want 0", target.AgentLocalCount)
+	}
 	if target.AgentExpectedCount == nil || *target.AgentExpectedCount != 1 {
 		t.Fatalf("agent expected = %v, want 1", target.AgentExpectedCount)
+	}
+}
+
+func TestTargetListJSON_IncludesLocalOnlyAgentCount(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+	writeGlobalTargetConfig(t, sb, "claude", targetPath, "")
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	agentTarget := filepath.Join(sb.Home, ".claude", "agents")
+	writeAgentFile(t, agentTarget, "local-only.md")
+
+	output := captureStdout(t, func() {
+		if err := targetListJSON(cfg); err != nil {
+			t.Fatalf("targetListJSON: %v", err)
+		}
+	})
+
+	var resp struct {
+		Targets []targetListJSONItem `json:"targets"`
+	}
+	if err := json.Unmarshal([]byte(output), &resp); err != nil {
+		t.Fatalf("decode json: %v\n%s", err, output)
+	}
+	if len(resp.Targets) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(resp.Targets))
+	}
+
+	target := resp.Targets[0]
+	if target.AgentLocalCount == nil || *target.AgentLocalCount != 1 {
+		t.Fatalf("agent local = %v, want 1", target.AgentLocalCount)
+	}
+	if target.AgentLinkedCount == nil || *target.AgentLinkedCount != 0 {
+		t.Fatalf("agent linked = %v, want 0", target.AgentLinkedCount)
+	}
+	if target.AgentExpectedCount == nil || *target.AgentExpectedCount != 0 {
+		t.Fatalf("agent expected = %v, want 0", target.AgentExpectedCount)
 	}
 }
 
@@ -215,6 +261,28 @@ func TestRenderTargetDetail_AgentSection(t *testing.T) {
 			want: []string{"Skills:", "/tmp/custom/skills", "Sync:", "copied (2 managed, 0 local)", "Agents:", "/tmp/custom/agents", "2/2 managed", "No agent include/exclude filters"},
 		},
 		{
+			name: "local-only agents are shown when source has none",
+			item: targetTUIItem{
+				name:        "claude",
+				displayPath: ".claude/skills",
+				skillSync:   "merged (0 shared, 0 local)",
+				target: config.TargetConfig{
+					Skills: &config.ResourceTargetConfig{
+						Path:         "/tmp/claude/skills",
+						Mode:         "merge",
+						TargetNaming: "flat",
+					},
+				},
+				agentSummary: &targetsummary.AgentSummary{
+					DisplayPath: ".claude/agents",
+					Path:        "/tmp/claude/agents",
+					Mode:        "merge",
+					LocalCount:  1,
+				},
+			},
+			want: []string{"Agents:", ".claude/agents", "no source agents yet (1 local)", "No agent include/exclude filters"},
+		},
+		{
 			name: "symlink agent target shows filters ignored warning",
 			item: targetTUIItem{
 				name:        "claude",
@@ -272,6 +340,50 @@ func TestRenderTargetDetail_AgentSection(t *testing.T) {
 				if strings.Contains(rendered, unwanted) {
 					t.Fatalf("did not expect %q in output:\n%s", unwanted, rendered)
 				}
+			}
+		})
+	}
+}
+
+func TestFormatTargetAgentSyncSummary_IncludesLocalAgents(t *testing.T) {
+	cases := []struct {
+		name    string
+		summary *targetsummary.AgentSummary
+		want    string
+	}{
+		{
+			name: "local only without source agents",
+			summary: &targetsummary.AgentSummary{
+				Mode:       "merge",
+				LocalCount: 1,
+			},
+			want: "no source agents yet (1 local)",
+		},
+		{
+			name: "managed and local without source agents",
+			summary: &targetsummary.AgentSummary{
+				Mode:         "copy",
+				ManagedCount: 2,
+				LocalCount:   1,
+			},
+			want: "no source agents yet (2 managed, 1 local)",
+		},
+		{
+			name: "expected source agents with local suffix",
+			summary: &targetsummary.AgentSummary{
+				Mode:          "merge",
+				ManagedCount:  2,
+				LocalCount:    1,
+				ExpectedCount: 3,
+			},
+			want: "2/3 linked, 1 local",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatTargetAgentSyncSummary(tc.summary); got != tc.want {
+				t.Fatalf("formatTargetAgentSyncSummary() = %q, want %q", got, tc.want)
 			}
 		})
 	}

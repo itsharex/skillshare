@@ -50,6 +50,13 @@
 - **Fix**: Redirect non-JSON commands to `/dev/null` (`ss extras remove ... >/dev/null 2>&1`) so that only the `--json` output remains in stdout. Alternative: split into separate steps (one for setup, one for JSON assertion)
 - **Runbooks affected**: extras_source_config_runbook.md (steps 6, 11)
 
+### [gotcha] Expected lines starting with `no ...` can be parsed as negation
+
+- **Context**: `target_local_agents_visibility_runbook.md` originally asserted `- no source agents yet (1 local)` for plain-text target output
+- **Discovery**: mdproof interpreted that Expected line as a negated substring assertion instead of a positive one because it began with `no`
+- **Fix**: Avoid bare Expected lines that start with `no`. Prefix them with stable surrounding text such as `Status:  no source agents yet (1 local)` or switch to `regex:` / `jq:` assertions
+- **Runbooks affected**: `target_local_agents_visibility_runbook.md`
+
 ### [gotcha] Don't nest ssenv inside mdproof — use mdproof's own isolation
 
 - **Context**: cli-e2e-test skill wraps mdproof inside `ssenv enter $ENV -- mdproof ...`, but mdproof.json has its own `setup` command that runs `ss init -g --force`

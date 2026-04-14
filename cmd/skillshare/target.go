@@ -452,6 +452,7 @@ type targetListJSONItem struct {
 	AgentInclude       []string `json:"agentInclude,omitempty"`
 	AgentExclude       []string `json:"agentExclude,omitempty"`
 	AgentLinkedCount   *int     `json:"agentLinkedCount,omitempty"`
+	AgentLocalCount    *int     `json:"agentLocalCount,omitempty"`
 	AgentExpectedCount *int     `json:"agentExpectedCount,omitempty"`
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
@@ -18,6 +19,7 @@ func applyTargetListAgentSummary(item *targetListJSONItem, summary *targetsummar
 	item.AgentInclude = append([]string(nil), summary.Include...)
 	item.AgentExclude = append([]string(nil), summary.Exclude...)
 	item.AgentLinkedCount = intPtr(summary.ManagedCount)
+	item.AgentLocalCount = intPtr(summary.LocalCount)
 	item.AgentExpectedCount = intPtr(summary.ExpectedCount)
 }
 
@@ -97,17 +99,32 @@ func formatTargetAgentSyncSummary(summary *targetsummary.AgentSummary) string {
 	}
 
 	if summary.ExpectedCount == 0 {
-		if summary.ManagedCount > 0 {
-			return fmt.Sprintf("no source agents yet (%d %s)", summary.ManagedCount, targetAgentCountLabel(summary.Mode))
+		counts := joinAgentCounts(summary.ManagedCount, targetAgentCountLabel(summary.Mode), summary.LocalCount)
+		if counts != "" {
+			return fmt.Sprintf("no source agents yet (%s)", counts)
 		}
 		return "no source agents yet"
 	}
 
 	summaryText := fmt.Sprintf("%d/%d %s", summary.ManagedCount, summary.ExpectedCount, targetAgentCountLabel(summary.Mode))
+	if summary.LocalCount > 0 {
+		summaryText += fmt.Sprintf(", %d local", summary.LocalCount)
+	}
 	if summary.Mode == "symlink" {
 		return summaryText + " (directory symlink)"
 	}
 	return summaryText
+}
+
+func joinAgentCounts(managed int, managedLabel string, local int) string {
+	var parts []string
+	if managed > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", managed, managedLabel))
+	}
+	if local > 0 {
+		parts = append(parts, fmt.Sprintf("%d local", local))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func targetAgentCountLabel(mode string) string {

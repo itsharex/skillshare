@@ -37,21 +37,57 @@ const AGENT_MODE_OPTIONS = [
   { value: 'copy', label: 'Copy', description: 'Physical file copies instead of symlinks' },
 ];
 
-function targetAgentSummary(target: TargetType): { text: string; hasDrift: boolean } {
+export type CollectScope = 'skill' | 'agent' | 'both';
+
+function pluralize(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? '' : 's'}`;
+}
+
+export function getTargetCollectScope(target: TargetType): CollectScope | null {
+  const hasLocalSkills = target.localCount > 0;
+  const hasLocalAgents = (target.agentLocalCount ?? 0) > 0;
+
+  if (hasLocalSkills && hasLocalAgents) return 'both';
+  if (hasLocalAgents) return 'agent';
+  if (hasLocalSkills) return 'skill';
+  return null;
+}
+
+export function targetAgentSummary(target: TargetType): { text: string; hasDrift: boolean } {
   const expected = target.agentExpectedCount ?? 0;
   const linked = target.agentLinkedCount ?? 0;
+  const local = target.agentLocalCount ?? 0;
   const label = target.agentMode === 'copy' ? 'managed' : 'linked';
   const hasDrift = expected > 0 && linked !== expected;
 
   if (expected === 0) {
-    if (linked > 0) {
-      return { text: `No source agents yet (${linked} ${label})`, hasDrift: false };
+    const counts = [
+      linked > 0 ? pluralize(linked, label) : null,
+      local > 0 ? pluralize(local, 'local') : null,
+    ].filter(Boolean).join(', ');
+    if (counts) {
+      return { text: `No source agents yet (${counts})`, hasDrift: false };
     }
     return { text: 'No source agents yet', hasDrift: false };
   }
 
   const suffix = target.agentMode === 'symlink' ? ' (directory symlink)' : '';
-  return { text: `${linked}/${expected} ${label}${suffix}`, hasDrift };
+  const localSuffix = local > 0 ? `, ${pluralize(local, 'local')}` : '';
+  return { text: `${linked}/${expected} ${label}${suffix}${localSuffix}`, hasDrift };
+}
+
+export function targetAgentAvailabilityText(target: TargetType): string {
+  const expected = target.agentExpectedCount ?? 0;
+  const local = target.agentLocalCount ?? 0;
+  const agentFilters = (target.agentInclude?.length ?? 0) + (target.agentExclude?.length ?? 0);
+
+  if (expected === 0) {
+    return local > 0 ? pluralize(local, 'local agent') : 'No agents';
+  }
+
+  if (!agentFilters) return `All ${expected} agents`;
+  const linked = target.agentLinkedCount ?? 0;
+  return `${linked}/${expected} agents`;
 }
 
 export default function TargetsPage() {
@@ -71,7 +107,7 @@ export default function TargetsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [customMode, setCustomMode] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
-  const [collecting, setCollecting] = useState<string | null>(null);
+  const [collecting, setCollecting] = useState<{ name: string; scope: CollectScope } | null>(null);
   const navigate = useNavigate();
   const { getTargetSummary } = useSyncMatrix();
   const { toast } = useToast();
@@ -434,6 +470,7 @@ export default function TargetsPage() {
             const hasDrift = isMergeOrCopy && target.linkedCount < expectedCount;
             const agentSummary = targetAgentSummary(target);
             const agentFilters = (target.agentInclude?.length ?? 0) + (target.agentExclude?.length ?? 0);
+            const collectScope = getTargetCollectScope(target);
             const visibleAgentInclude = (target.agentInclude ?? []).slice(0, 3);
             const visibleAgentExclude = (target.agentExclude ?? []).slice(0, Math.max(0, 3 - visibleAgentInclude.length));
             const overflowAgentFilters = agentFilters - (visibleAgentInclude.length + visibleAgentExclude.length);
@@ -450,13 +487,13 @@ export default function TargetsPage() {
                     <span className="font-bold text-pencil">{target.name}</span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {(target.mode === 'merge' || target.mode === 'copy') && target.localCount > 0 && (
+                    {collectScope && (
                       <IconButton
                         icon={<ArrowDownToLine size={16} strokeWidth={2.5} />}
-                        label="Collect local skills"
+                        label={`Collect local ${collectScope === 'both' ? 'resources' : collectScope === 'agent' ? 'agents' : 'skills'}`}
                         size="md"
                         variant="outline"
-                        onClick={() => setCollecting(target.name)}
+                        onClick={() => setCollecting({ name: target.name, scope: collectScope })}
                         className="hover:text-blue hover:border-blue"
                       />
                     )}
@@ -603,15 +640,7 @@ export default function TargetsPage() {
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-pencil-light">
-                        {(() => {
-                          const expected = target.agentExpectedCount ?? 0;
-                          if (expected === 0) return 'No agents';
-                          if (!agentFilters) return `All ${expected} agents`;
-                          const linked = target.agentLinkedCount ?? 0;
-                          return `${linked}/${expected} agents`;
-                        })()}
-                      </span>
+                      <span className="text-sm text-pencil-light">{targetAgentAvailabilityText(target)}</span>
                       {visibleAgentInclude.map((pattern, idx) => (
                         <span
                           key={`agent-inc-${idx}`}
@@ -684,11 +713,19 @@ export default function TargetsPage() {
       {/* Confirm collect dialog */}
       <ConfirmDialog
         open={!!collecting}
-        title="Collect Local Skills"
-        message={`Scan "${collecting}" for local skills to collect back to source?`}
+        title={`Collect Local ${collecting?.scope === 'both' ? 'Resources' : collecting?.scope === 'agent' ? 'Agents' : 'Skills'}`}
+        message={collecting
+          ? `Scan "${collecting.name}" for local ${collecting.scope === 'both' ? 'resources' : collecting.scope === 'agent' ? 'agents' : 'skills'} to collect back to source?`
+          : ''}
         confirmText="Scan"
         onConfirm={() => {
-          if (collecting) navigate(`/collect?target=${encodeURIComponent(collecting)}`);
+          if (collecting) {
+            const params = new URLSearchParams({
+              target: collecting.name,
+              scope: collecting.scope,
+            });
+            navigate(`/collect?${params.toString()}`);
+          }
           setCollecting(null);
         }}
         onCancel={() => setCollecting(null)}

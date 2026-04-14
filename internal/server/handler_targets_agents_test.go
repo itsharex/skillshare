@@ -18,6 +18,7 @@ type targetAgentResponse struct {
 	AgentInclude       []string `json:"agentInclude"`
 	AgentExclude       []string `json:"agentExclude"`
 	AgentLinkedCount   *int     `json:"agentLinkedCount"`
+	AgentLocalCount    *int     `json:"agentLocalCount"`
 	AgentExpectedCount *int     `json:"agentExpectedCount"`
 }
 
@@ -111,6 +112,31 @@ func TestHandleListTargets_CustomAgentPathOverridesBuiltin(t *testing.T) {
 	}
 	if got := targetResp.AgentExclude; len(got) != 1 || got[0] != "draft-*" {
 		t.Fatalf("agent exclude = %v, want [draft-*]", got)
+	}
+}
+
+func TestHandleListTargets_IncludesLocalAgentCount(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	if err := os.MkdirAll(home, 0755); err != nil {
+		t.Fatalf("mkdir home: %v", err)
+	}
+	t.Setenv("HOME", home)
+
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, _ := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+
+	agentTarget := filepath.Join(home, ".claude", "agents")
+	addAgentFile(t, agentTarget, "local-only.md")
+
+	target := fetchTargetByName(t, s, "claude")
+	if target.AgentLocalCount == nil || *target.AgentLocalCount != 1 {
+		t.Fatalf("agent local = %v, want 1", target.AgentLocalCount)
+	}
+	if target.AgentLinkedCount == nil || *target.AgentLinkedCount != 0 {
+		t.Fatalf("agent linked = %v, want 0", target.AgentLinkedCount)
+	}
+	if target.AgentExpectedCount == nil || *target.AgentExpectedCount != 0 {
+		t.Fatalf("agent expected = %v, want 0", target.AgentExpectedCount)
 	}
 }
 

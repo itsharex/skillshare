@@ -616,6 +616,7 @@ export interface Target {
   agentInclude?: string[];
   agentExclude?: string[];
   agentLinkedCount?: number;
+  agentLocalCount?: number;
   agentExpectedCount?: number;
 }
 

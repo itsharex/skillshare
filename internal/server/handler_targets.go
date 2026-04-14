@@ -32,6 +32,7 @@ type targetItem struct {
 	AgentInclude       []string `json:"agentInclude,omitempty"`
 	AgentExclude       []string `json:"agentExclude,omitempty"`
 	AgentLinkedCount   *int     `json:"agentLinkedCount,omitempty"`
+	AgentLocalCount    *int     `json:"agentLocalCount,omitempty"`
 	AgentExpectedCount *int     `json:"agentExpectedCount,omitempty"`
 }
 
@@ -158,6 +159,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 			item.AgentInclude = agentSummary.Include
 			item.AgentExclude = agentSummary.Exclude
 			item.AgentLinkedCount = intPtr(agentSummary.ManagedCount)
+			item.AgentLocalCount = intPtr(agentSummary.LocalCount)
 			item.AgentExpectedCount = intPtr(agentSummary.ExpectedCount)
 		}
 
